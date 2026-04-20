@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brainfuck Todo List</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        h1 {
+            text-align: center;
+            color: #1a1a1a;
+        }
+        .form-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        .task-wrapper {
+            position: relative;
+        }
+        /* Brainfuck injecteaza clasa .task-item */
+        .task-item {
+            display: block;
+            position: relative;
+        }
+        .delete-btn {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #dc3545;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 18px;
+            background: #fff;
+            padding: 0 5px;
+        }
+        .delete-btn:hover {
+            color: #a71d2a;
+        }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 0.9em;
+            color: #666;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧠 BF Todo Formatter</h1>
+    <div style="text-align: right; margin-bottom: 20px;">
+        <a href="/logout" style="color: #dc3545; text-decoration: none; font-weight: bold;">Logout</a>
+    </div>
+    <div class="form-container">
+        <form action="/add" method="POST" style="width: 100%; display: flex; gap: 10px;">
+            <input type="text" name="task" placeholder="Adauga un task nou..." required autocomplete="off">
+            <button type="submit">Adauga</button>
+        </form>
+    </div>
+    
+    <ul>
+        
+            <li style="padding: 15px; text-align: center; color: #888;">Niciun task. Adauga unul mai sus!</li>
+        
+    </ul>
+    
+    <div class="footer">
+        <p>Logica de prezentare (HTML render) pentru fiecare task din lista este generata si procesata de scriptul <strong>Brainfuck</strong>.</p>
+    </div>
+</body>
+</html>
