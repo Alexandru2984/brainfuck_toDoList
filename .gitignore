@@ -19,3 +19,7 @@ Thumbs.db
 
 # Project Docs
 GEMINI.md
+
+# Server Configs
+brainfuck.service
+brainfuck.micutu.com.conf
