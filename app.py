@@ -5,7 +5,7 @@ import sqlite3
 from bf_interpreter import run_bf
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24) # Necesara pentru session cookies
+app.secret_key = 'REDACTED_FLASK_SECRET' # Changed from os.urandom to fix gunicorn workers
 DB_FILE = 'todos.db'
 
 def init_db():
