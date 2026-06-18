@@ -1,12 +1,27 @@
 import os
 import socket
+from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, session
 import sqlite3
 from bf_interpreter import run_bf
+from generate_login_bf import generate_login_bf
 
 app = Flask(__name__)
-app.secret_key = 'REDACTED_FLASK_SECRET' # Changed from os.urandom to fix gunicorn workers
-DB_FILE = 'todos.db'
+BASE_DIR = Path(__file__).resolve().parent
+DB_FILE = os.environ.get('BRAINFUCK_DB_FILE', str(BASE_DIR / 'todos.db'))
+
+
+def required_env(*names):
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    joined_names = " or ".join(names)
+    raise RuntimeError(f"Missing required environment variable: {joined_names}")
+
+
+app.secret_key = required_env('BRAINFUCK_SECRET_KEY', 'SECRET_KEY')
+LOGIN_BF_CODE = generate_login_bf(required_env('BRAINFUCK_PASSWORD'))
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -31,9 +46,7 @@ def format_with_bf(task):
 
 def verify_login_with_bf(password):
     try:
-        with open('login.bf', 'r') as f:
-            bf_code = f.read()
-        result = run_bf(bf_code, password)
+        result = run_bf(LOGIN_BF_CODE, password)
         return result == '1'
     except Exception as e:
         print("Login BF error:", e)

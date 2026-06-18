@@ -32,8 +32,8 @@ This application pushes Brainfuck to its limits by delegating critical applicati
 
 This application is deployed as a **personal proof-of-concept**. It is intentionally left online to showcase the integration, but it contains several architectural "flaws" typical of such experiments. **Do not use this for sensitive data.**
 
-1. **Weak Password:** The login password is hardcoded as `brainfuck` inside the `login.bf` script logic. Anyone who reads this or guesses it can access the app.
-2. **Hardcoded Secret Key:** To allow Gunicorn's multiple workers to share session cookies seamlessly, the Flask `secret_key` is hardcoded in `app.py`. In a real production app, this would allow session hijacking if the source code were public.
+1. **Password Management:** The login password must be supplied through the `BRAINFUCK_PASSWORD` environment variable. It is compiled into Brainfuck at process startup and must not be committed.
+2. **Session Secret:** The Flask signing key must be supplied through `BRAINFUCK_SECRET_KEY` or `SECRET_KEY`. It must be stable across Gunicorn workers and must not be committed.
 3. **Stored XSS (Cross-Site Scripting):** Because the Brainfuck engine is responsible for rendering raw HTML, the Flask template uses the `| safe` filter. This means any HTML or JavaScript injected into a task (e.g., `<script>alert(1)</script>`) will be executed in the browser of anyone viewing the list. 
 
 *This is a feature, not a bug, for this specific experimental sandbox.*
@@ -65,4 +65,4 @@ This application is deployed as a **personal proof-of-concept**. It is intention
 
 4. **Access the application:**
    Open your browser and navigate to the address shown in your terminal.
-   **Login Password:** `brainfuck`
+   Configure `BRAINFUCK_PASSWORD` and `BRAINFUCK_SECRET_KEY` before starting the app.
