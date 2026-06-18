@@ -7,24 +7,34 @@ import tempfile
 import unittest
 from contextlib import closing
 
+
 os.environ.setdefault("BRAINFUCK_SECRET_KEY", "test-secret")
 os.environ.setdefault("BRAINFUCK_PASSWORD", "test-password")
-db_file = tempfile.NamedTemporaryFile(delete=False)
-db_file.close()
-os.environ["BRAINFUCK_DB_FILE"] = db_file.name
 os.environ.setdefault("BRAINFUCK_MAX_TASK_LENGTH", "12")
 
-from app import app, encrypt_with_bf, format_with_bf, init_db
+from app import create_app, encrypt_with_bf, format_with_bf
 from bf_interpreter import run_bf
 
 
 class SecurityTests(unittest.TestCase):
     def setUp(self):
-        if os.path.exists(db_file.name):
-            os.unlink(db_file.name)
-        app.config["TESTING"] = True
-        init_db()
-        self.client = app.test_client()
+        db_file = tempfile.NamedTemporaryFile(delete=False)
+        db_file.close()
+        os.unlink(db_file.name)
+        self.db_file = db_file.name
+        self.app = create_app(
+            {
+                "DB_FILE": self.db_file,
+                "TESTING": True,
+                "MAX_TASK_LENGTH": 12,
+                "SECURITY_HEADERS_ENABLED": True,
+            }
+        )
+        self.client = self.app.test_client()
+
+    def tearDown(self):
+        if os.path.exists(self.db_file):
+            os.unlink(self.db_file)
 
     def csrf_token_from(self, html):
         match = re.search(r'name="csrf_token" value="([^"]+)"', html)
@@ -38,6 +48,13 @@ class SecurityTests(unittest.TestCase):
             "/login",
             data={"password": "test-password", "csrf_token": token},
         )
+
+    def test_healthcheck_and_security_headers(self):
+        response = self.client.get("/healthz")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json, {"database": "ok", "status": "ok"})
+        self.assertEqual(response.headers["X-Content-Type-Options"], "nosniff")
+        self.assertIn("frame-ancestors 'none'", response.headers["Content-Security-Policy"])
 
     def test_login_requires_csrf_and_sets_secure_cookie(self):
         self.assertEqual(
@@ -77,7 +94,8 @@ class SecurityTests(unittest.TestCase):
 
     def test_brainfuck_output_is_sanitized(self):
         payload = '<script>alert(1)</script><img src=x onerror=alert(1)>'
-        rendered = format_with_bf(encrypt_with_bf(payload)).lower()
+        with self.app.app_context():
+            rendered = format_with_bf(encrypt_with_bf(payload)).lower()
         self.assertNotIn("<script", rendered)
         self.assertNotIn("<img", rendered)
         self.assertIn("&lt;script&gt;", rendered)
