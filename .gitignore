@@ -9,6 +9,12 @@ venv/
 env/
 ENV/
 
+# Local environment files
+.env
+.env.*
+brainfuck.env
+*.secret
+
 # Database
 todos.db
 *.sqlite3

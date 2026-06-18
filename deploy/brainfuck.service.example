@@ -1,0 +1,24 @@
+[Unit]
+Description=Gunicorn instance to serve brainfuck app
+After=network.target
+
+[Service]
+User=micu
+Group=www-data
+WorkingDirectory=/home/micu/brainfuck
+Environment="PATH=/home/micu/brainfuck/venv/bin"
+EnvironmentFile=/etc/brainfuck/brainfuck.env
+ExecStart=/home/micu/brainfuck/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:34623 --timeout 30 app:app
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/micu/brainfuck
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target
