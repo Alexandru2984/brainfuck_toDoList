@@ -68,6 +68,7 @@ class SecurityTests(unittest.TestCase):
         self.assertIn("HttpOnly", cookie)
         self.assertIn("Secure", cookie)
         self.assertIn("SameSite=Lax", cookie)
+        self.assertIn("Expires=", cookie)
 
     def test_mutations_require_csrf_and_delete_is_not_get(self):
         self.login()
@@ -91,6 +92,12 @@ class SecurityTests(unittest.TestCase):
             data={"task": "this is too long", "csrf_token": token},
         )
         self.assertEqual(response.status_code, 413)
+        self.assertIn("Input prea mare", response.get_data(as_text=True))
+
+    def test_invalid_csrf_returns_error_page(self):
+        response = self.client.post("/login", data={"password": "test-password"})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Cerere invalida", response.get_data(as_text=True))
 
     def test_brainfuck_output_is_sanitized(self):
         payload = '<script>alert(1)</script><img src=x onerror=alert(1)>'

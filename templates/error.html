@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Brainfuck Todo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 480px;
+            margin: 100px auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #1a1a1a;
+        }
+        .error-panel {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
+            padding: 28px;
+        }
+        h1 {
+            font-size: 24px;
+            margin: 0 0 12px;
+        }
+        p {
+            color: #555;
+            line-height: 1.5;
+            margin: 0 0 22px;
+        }
+        a {
+            color: #007bff;
+            font-weight: 700;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <main class="error-panel">
+        <h1>{{ title }}</h1>
+        <p>{{ message }}</p>
+        <a href="{{ url_for('index') }}">Inapoi la aplicatie</a>
+    </main>
+</body>
+</html>

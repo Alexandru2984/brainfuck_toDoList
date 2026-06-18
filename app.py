@@ -6,6 +6,7 @@ import socket
 import sqlite3
 import time
 from contextlib import closing
+from datetime import timedelta
 from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
@@ -70,6 +71,10 @@ def build_config():
         "MAX_BF_STEPS": int_env("BRAINFUCK_MAX_BF_STEPS", 1_000_000),
         "MAX_BF_OUTPUT": int_env("BRAINFUCK_MAX_BF_OUTPUT", 50_000),
         "MAX_CONTENT_LENGTH": int_env("BRAINFUCK_MAX_CONTENT_LENGTH", 16 * 1024),
+        "SQLITE_TIMEOUT_SECONDS": int_env("BRAINFUCK_SQLITE_TIMEOUT_SECONDS", 5),
+        "PERMANENT_SESSION_LIFETIME": timedelta(
+            seconds=int_env("BRAINFUCK_SESSION_LIFETIME_SECONDS", 12 * 60 * 60)
+        ),
         "SESSION_COOKIE_HTTPONLY": True,
         "SESSION_COOKIE_SECURE": os.environ.get("BRAINFUCK_COOKIE_SECURE", "1") != "0",
         "SESSION_COOKIE_SAMESITE": os.environ.get("BRAINFUCK_COOKIE_SAMESITE", "Lax"),
@@ -138,8 +143,9 @@ def create_app(config_overrides=None):
     app.secret_key = app.config["SECRET_KEY"]
 
     configure_logging(app)
-    init_db(app.config["DB_FILE"])
+    init_db(app.config["DB_FILE"], app.config["SQLITE_TIMEOUT_SECONDS"])
     register_hooks(app)
+    register_error_handlers(app)
     register_routes(app)
     app.jinja_env.globals["csrf_token"] = csrf_token
     return app
@@ -189,6 +195,42 @@ def register_hooks(app):
         return response
 
 
+def register_error_handlers(app):
+    @app.errorhandler(400)
+    def bad_request(_error):
+        return (
+            render_template(
+                "error.html",
+                title="Cerere invalida",
+                message="Formularul a expirat sau cererea nu a putut fi validata.",
+            ),
+            400,
+        )
+
+    @app.errorhandler(413)
+    def payload_too_large(_error):
+        return (
+            render_template(
+                "error.html",
+                title="Input prea mare",
+                message="Task-ul trimis depaseste limita acceptata pentru aplicatie.",
+            ),
+            413,
+        )
+
+    @app.errorhandler(500)
+    def internal_error(error):
+        current_app.logger.exception("unhandled application error", exc_info=error)
+        return (
+            render_template(
+                "error.html",
+                title="Eroare interna",
+                message="Aplicatia a intampinat o problema temporara.",
+            ),
+            500,
+        )
+
+
 def register_routes(app):
     @app.route("/healthz")
     def healthz():
@@ -208,6 +250,7 @@ def register_routes(app):
             password = request.form.get("password", "")
             if verify_login_with_bf(password):
                 session.clear()
+                session.permanent = True
                 session["logged_in"] = True
                 csrf_token()
                 return redirect(url_for("index"))
@@ -290,9 +333,11 @@ def sanitize_bf_html(html):
     return sanitizer.get_html()
 
 
-def init_db(db_file):
-    with closing(sqlite3.connect(db_file)) as conn:
+def init_db(db_file, timeout=5):
+    with closing(sqlite3.connect(db_file, timeout=timeout)) as conn:
         with conn:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=5000")
             conn.execute(
                 """CREATE TABLE IF NOT EXISTS todos
                    (id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT NOT NULL)"""
@@ -300,7 +345,13 @@ def init_db(db_file):
 
 
 def get_db_connection():
-    conn = sqlite3.connect(current_app.config["DB_FILE"])
+    conn = sqlite3.connect(
+        current_app.config["DB_FILE"],
+        timeout=current_app.config["SQLITE_TIMEOUT_SECONDS"],
+    )
+    conn.execute(
+        f"PRAGMA busy_timeout={current_app.config['SQLITE_TIMEOUT_SECONDS'] * 1000}"
+    )
     conn.row_factory = sqlite3.Row
     return conn
 
