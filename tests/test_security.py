@@ -1,7 +1,11 @@
 import os
 import re
+import sqlite3
+import subprocess
+import sys
 import tempfile
 import unittest
+from contextlib import closing
 
 os.environ.setdefault("BRAINFUCK_SECRET_KEY", "test-secret")
 os.environ.setdefault("BRAINFUCK_PASSWORD", "test-password")
@@ -82,6 +86,28 @@ class SecurityTests(unittest.TestCase):
     def test_brainfuck_step_limit(self):
         with self.assertRaises(TimeoutError):
             run_bf("+[]", "", max_steps=10)
+
+    def test_import_initializes_database_for_gunicorn(self):
+        import_db_file = tempfile.NamedTemporaryFile(delete=False)
+        import_db_file.close()
+        os.unlink(import_db_file.name)
+        env = os.environ.copy()
+        env["BRAINFUCK_DB_FILE"] = import_db_file.name
+        env["BRAINFUCK_SECRET_KEY"] = "test-secret"
+        env["BRAINFUCK_PASSWORD"] = "test-password"
+
+        subprocess.run(
+            [sys.executable, "-c", "import app"],
+            check=True,
+            env=env,
+            cwd=os.getcwd(),
+        )
+        with closing(sqlite3.connect(import_db_file.name)) as conn:
+            row = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'todos'"
+            ).fetchone()
+        os.unlink(import_db_file.name)
+        self.assertEqual(row[0], "todos")
 
 
 if __name__ == "__main__":

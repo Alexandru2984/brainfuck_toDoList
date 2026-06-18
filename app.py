@@ -2,6 +2,7 @@ import hmac
 import os
 import secrets
 import socket
+from contextlib import closing
 from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
@@ -35,6 +36,13 @@ def int_env(name, default):
     if parsed_value <= 0:
         raise RuntimeError(f"{name} must be greater than zero")
     return parsed_value
+
+
+def bool_env(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {'1', 'true', 'yes', 'on'}
 
 
 app.secret_key = required_env('BRAINFUCK_SECRET_KEY', 'SECRET_KEY')
@@ -129,12 +137,13 @@ def sanitize_bf_html(html):
     return sanitizer.get_html()
 
 def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS todos
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT)''')
-    conn.commit()
-    conn.close()
+    with closing(sqlite3.connect(DB_FILE)) as conn:
+        with conn:
+            conn.execute('''CREATE TABLE IF NOT EXISTS todos
+                            (id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT)''')
+
+
+init_db()
 
 def get_db_connection():
     conn = sqlite3.connect(DB_FILE)
@@ -189,9 +198,8 @@ def index():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
 
-    conn = get_db_connection()
-    todos = conn.execute('SELECT * FROM todos').fetchall()
-    conn.close()
+    with closing(get_db_connection()) as conn:
+        todos = conn.execute('SELECT * FROM todos').fetchall()
     
     formatted_todos = []
     for todo in todos:
@@ -221,10 +229,9 @@ def add():
         if len(task) > MAX_TASK_LENGTH:
             abort(413)
         encrypted_task = encrypt_with_bf(escape(task, quote=True))
-        conn = get_db_connection()
-        conn.execute('INSERT INTO todos (task) VALUES (?)', (encrypted_task,))
-        conn.commit()
-        conn.close()
+        with closing(get_db_connection()) as conn:
+            with conn:
+                conn.execute('INSERT INTO todos (task) VALUES (?)', (encrypted_task,))
     return redirect(url_for('index'))
 
 @app.route('/delete/<int:id>', methods=['POST'])
@@ -233,10 +240,9 @@ def delete(id):
         return redirect(url_for('login'))
     validate_csrf()
         
-    conn = get_db_connection()
-    conn.execute('DELETE FROM todos WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
+    with closing(get_db_connection()) as conn:
+        with conn:
+            conn.execute('DELETE FROM todos WHERE id = ?', (id,))
     return redirect(url_for('index'))
 
 def get_free_port(start_port=5000):
@@ -248,10 +254,7 @@ def get_free_port(start_port=5000):
             port += 1
 
 if __name__ == '__main__':
-    # Creem baza de date
-    init_db()
-    
     # Gasim dinamic un port liber conform regulii "Nu omori niciun proces"
     port = get_free_port()
     print(f"[*] Binding server to dynamically found available port: {port}")
-    app.run(debug=True, port=port)
+    app.run(debug=bool_env('BRAINFUCK_DEBUG'), port=port)
