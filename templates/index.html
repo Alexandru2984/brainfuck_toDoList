@@ -53,6 +53,9 @@
         .task-wrapper {
             position: relative;
         }
+        .delete-form {
+            display: inline;
+        }
         /* Brainfuck injecteaza clasa .task-item */
         .task-item {
             display: block;
@@ -69,6 +72,8 @@
             font-size: 18px;
             background: #fff;
             padding: 0 5px;
+            border: 0;
+            cursor: pointer;
         }
         .delete-btn:hover {
             color: #a71d2a;
@@ -86,10 +91,14 @@
 <body>
     <h1>🧠 BF Todo Formatter</h1>
     <div style="text-align: right; margin-bottom: 20px;">
-        <a href="/logout" style="color: #dc3545; text-decoration: none; font-weight: bold;">Logout</a>
+        <form action="/logout" method="POST" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" style="color: #dc3545; background: transparent; border: 0; padding: 0; font-weight: bold; cursor: pointer;">Logout</button>
+        </form>
     </div>
     <div class="form-container">
         <form action="/add" method="POST" style="width: 100%; display: flex; gap: 10px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="text" name="task" placeholder="Adauga un task nou..." required autocomplete="off">
             <button type="submit">Adauga</button>
         </form>
@@ -99,7 +108,10 @@
         {% for todo in todos %}
             <div class="task-wrapper">
                 {{ todo.html | safe }}
-                <a href="/delete/{{ todo.id }}" class="delete-btn" title="Sterge task">✕</a>
+                <form action="/delete/{{ todo.id }}" method="POST" class="delete-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="delete-btn" title="Sterge task">✕</button>
+                </form>
             </div>
         {% else %}
             <li style="padding: 15px; text-align: center; color: #888;">Niciun task. Adauga unul mai sus!</li>

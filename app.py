@@ -1,7 +1,9 @@
+import hmac
 import os
+import secrets
 import socket
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, abort, render_template, request, redirect, url_for, session
 import sqlite3
 from bf_interpreter import run_bf
 from generate_login_bf import generate_login_bf
@@ -22,6 +24,25 @@ def required_env(*names):
 
 app.secret_key = required_env('BRAINFUCK_SECRET_KEY', 'SECRET_KEY')
 LOGIN_BF_CODE = generate_login_bf(required_env('BRAINFUCK_PASSWORD'))
+CSRF_SESSION_KEY = '_csrf_token'
+
+
+def csrf_token():
+    token = session.get(CSRF_SESSION_KEY)
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session[CSRF_SESSION_KEY] = token
+    return token
+
+
+def validate_csrf():
+    token = session.get(CSRF_SESSION_KEY)
+    submitted_token = request.form.get('csrf_token', '')
+    if not token or not hmac.compare_digest(token, submitted_token):
+        abort(400)
+
+
+app.jinja_env.globals['csrf_token'] = csrf_token
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -56,18 +77,22 @@ def verify_login_with_bf(password):
 def login():
     error = None
     if request.method == 'POST':
+        validate_csrf()
         password = request.form.get('password', '')
         # AICI INTERVINE BRAINFUCK!
         if verify_login_with_bf(password):
+            session.clear()
             session['logged_in'] = True
+            csrf_token()
             return redirect(url_for('index'))
         else:
             error = "Parola incorecta! (Validat de Brainfuck 🧠)"
     return render_template('login.html', error=error)
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
 def logout():
-    session.pop('logged_in', None)
+    validate_csrf()
+    session.clear()
     return redirect(url_for('login'))
 
 @app.route('/')
@@ -100,6 +125,7 @@ def encrypt_with_bf(task):
 def add():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
+    validate_csrf()
         
     task = request.form.get('task')
     if task:
@@ -110,10 +136,11 @@ def add():
         conn.close()
     return redirect(url_for('index'))
 
-@app.route('/delete/<int:id>')
+@app.route('/delete/<int:id>', methods=['POST'])
 def delete(id):
     if not session.get('logged_in'):
         return redirect(url_for('login'))
+    validate_csrf()
         
     conn = get_db_connection()
     conn.execute('DELETE FROM todos WHERE id = ?', (id,))
