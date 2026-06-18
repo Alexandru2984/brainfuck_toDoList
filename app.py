@@ -2,6 +2,8 @@ import hmac
 import os
 import secrets
 import socket
+from html import escape
+from html.parser import HTMLParser
 from pathlib import Path
 from flask import Flask, abort, render_template, request, redirect, url_for, session
 import sqlite3
@@ -44,6 +46,66 @@ def validate_csrf():
 
 app.jinja_env.globals['csrf_token'] = csrf_token
 
+
+class BFHTMLSanitizer(HTMLParser):
+    ALLOWED_TAGS = {'li', 'div', 'strong', 'em', 'span'}
+    ALLOWED_CLASSES = {'task-item'}
+    ALLOWED_STYLES = {
+        'padding: 15px; border-bottom: 1px solid #eee; font-family: monospace; background: #fff; border-radius: 4px; margin-bottom: 8px;',
+        'display: flex; justify-content: space-between; align-items: center;',
+        'color: #007bff; font-size: 1.1em;',
+        'font-size: 1.3em; color: #111; margin-top: 10px;',
+        'color: #d63384; margin-top: 8px; font-size: 0.9em;',
+        'color: #28a745; margin-top: 4px; font-size: 0.9em;',
+        'letter-spacing: 2px;',
+    }
+
+    def __init__(self):
+        super().__init__(convert_charrefs=False)
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag not in self.ALLOWED_TAGS:
+            self.parts.append(escape(self.get_starttag_text()))
+            return
+
+        safe_attrs = []
+        for name, value in attrs:
+            if name == 'class' and value in self.ALLOWED_CLASSES:
+                safe_attrs.append((name, value))
+            elif name == 'style' and value in self.ALLOWED_STYLES:
+                safe_attrs.append((name, value))
+
+        rendered_attrs = ''.join(
+            f' {name}="{escape(value, quote=True)}"' for name, value in safe_attrs
+        )
+        self.parts.append(f'<{tag}{rendered_attrs}>')
+
+    def handle_endtag(self, tag):
+        if tag in self.ALLOWED_TAGS:
+            self.parts.append(f'</{tag}>')
+        else:
+            self.parts.append(escape(f'</{tag}>'))
+
+    def handle_data(self, data):
+        self.parts.append(escape(data))
+
+    def handle_entityref(self, name):
+        self.parts.append(f'&{name};')
+
+    def handle_charref(self, name):
+        self.parts.append(f'&#{name};')
+
+    def get_html(self):
+        return ''.join(self.parts)
+
+
+def sanitize_bf_html(html):
+    sanitizer = BFHTMLSanitizer()
+    sanitizer.feed(html)
+    sanitizer.close()
+    return sanitizer.get_html()
+
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
@@ -61,9 +123,9 @@ def format_with_bf(task):
     try:
         with open('format_task.bf', 'r') as f:
             bf_code = f.read()
-        return run_bf(bf_code, task)
+        return sanitize_bf_html(run_bf(bf_code, task))
     except Exception as e:
-        return f"<li style='color:red;'>Error executing Brainfuck script: {e}</li>"
+        return f'<li class="task-item">Error executing Brainfuck script: {escape(str(e))}</li>'
 
 def verify_login_with_bf(password):
     try:
@@ -129,7 +191,7 @@ def add():
         
     task = request.form.get('task')
     if task:
-        encrypted_task = encrypt_with_bf(task)
+        encrypted_task = encrypt_with_bf(escape(task, quote=True))
         conn = get_db_connection()
         conn.execute('INSERT INTO todos (task) VALUES (?)', (encrypted_task,))
         conn.commit()
