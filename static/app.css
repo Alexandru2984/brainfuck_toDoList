@@ -1,0 +1,221 @@
+:root {
+    color-scheme: light;
+    --bg: #f4f6f8;
+    --panel: #ffffff;
+    --text: #14181f;
+    --muted: #687385;
+    --line: #d8dee8;
+    --primary: #1769e0;
+    --primary-strong: #0f4fa8;
+    --danger: #c73645;
+    --danger-strong: #982634;
+    --shadow: 0 12px 30px rgba(20, 24, 31, 0.08);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.app-shell {
+    width: min(760px, calc(100% - 32px));
+    margin: 36px auto;
+}
+
+.auth-shell,
+.error-shell {
+    width: min(440px, calc(100% - 32px));
+    margin: 92px auto;
+}
+
+.topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+}
+
+.eyebrow {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0;
+    margin: 0 0 6px;
+    text-transform: uppercase;
+}
+
+h1 {
+    font-size: 32px;
+    line-height: 1.1;
+    margin: 0;
+}
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    padding: 24px;
+}
+
+.compose {
+    margin-bottom: 18px;
+}
+
+.task-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+}
+
+input[type="text"],
+input[type="password"] {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 16px;
+    min-height: 44px;
+    padding: 10px 12px;
+}
+
+input:focus {
+    border-color: var(--primary);
+    outline: 3px solid rgba(23, 105, 224, 0.18);
+}
+
+button,
+.button-link {
+    align-items: center;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 15px;
+    font-weight: 700;
+    justify-content: center;
+    min-height: 44px;
+    padding: 10px 18px;
+    text-decoration: none;
+}
+
+.primary-button {
+    background: var(--primary);
+    color: #fff;
+}
+
+.primary-button:hover {
+    background: var(--primary-strong);
+}
+
+.ghost-button {
+    background: transparent;
+    color: var(--danger);
+    min-height: 0;
+    padding: 4px 0;
+}
+
+.ghost-button:hover {
+    color: var(--danger-strong);
+}
+
+.auth-form {
+    display: grid;
+    gap: 14px;
+    margin-top: 20px;
+}
+
+.helper-text,
+.empty-state,
+.error-copy {
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+.error-message {
+    background: #fff1f3;
+    border: 1px solid #ffd1d7;
+    border-radius: 6px;
+    color: var(--danger);
+    font-weight: 700;
+    padding: 10px 12px;
+}
+
+.task-list {
+    display: grid;
+    gap: 12px;
+}
+
+.task-wrapper {
+    position: relative;
+}
+
+.delete-form {
+    display: inline;
+}
+
+.task-item {
+    display: block;
+    padding-right: 52px !important;
+    position: relative;
+}
+
+.delete-btn {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--danger);
+    font-size: 18px;
+    font-weight: 700;
+    height: 34px;
+    min-height: 34px;
+    padding: 0;
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px;
+}
+
+.delete-btn:hover {
+    color: var(--danger-strong);
+    border-color: #f0a7b0;
+}
+
+.empty-state {
+    background: var(--panel);
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    padding: 22px;
+    text-align: center;
+}
+
+@media (max-width: 560px) {
+    .app-shell {
+        margin-top: 20px;
+    }
+
+    .topbar,
+    .task-form {
+        grid-template-columns: 1fr;
+    }
+
+    .topbar {
+        display: grid;
+    }
+
+    .task-form {
+        display: grid;
+    }
+
+    .primary-button {
+        width: 100%;
+    }
+}

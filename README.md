@@ -1,90 +1,102 @@
-# Brainfuck Todo App 🧠
+# Brainfuck Todo App
 
-Welcome to the **Brainfuck Todo App**, a simple web-based Todo List application where core backend logic, encryption, and presentation rendering are handled entirely by **Brainfuck scripts**. 
+Production-hardened Flask todo app where the intentionally unusual parts of the stack are implemented in Brainfuck: login verification, text transformation, and task presentation formatting.
 
-This is a fun, experimental portfolio project demonstrating the integration of an esoteric programming language (Brainfuck) into a modern web stack (Python/Flask, SQLite, Nginx, Systemd).
+The project is a portfolio piece, but it is deployed like a real service: secrets live outside git, sessions are signed with rotated keys, mutating routes use CSRF protection, rendered Brainfuck HTML is sanitized, and the public deployment runs behind Cloudflare, Nginx, Gunicorn, and systemd hardening.
 
-## 🚀 Features
+## Features
 
-This application pushes Brainfuck to its limits by delegating critical application layers to it:
+- Brainfuck-backed login verifier generated at process startup from `BRAINFUCK_PASSWORD`.
+- SQLite todo storage with a Brainfuck transformation pass before insert.
+- Brainfuck-generated task rendering passed through a strict Python HTML sanitizer.
+- Flask application factory, healthcheck endpoint, structured request logging, and app-level security headers.
+- CSRF protection for login, add, delete, and logout.
+- Runtime limits for request size, task length, Brainfuck steps, and Brainfuck output.
+- Production examples for env files, systemd, Nginx rate limits, CSP, and Cloudflare origin guard.
+- Local quality gate through `ruff`, `unittest`, `Makefile`, and GitHub Actions CI.
 
-1. **Authentication via Brainfuck (`login.bf`)**: 
-   - The login system does not verify the password in Python. 
-   - Instead, the input is passed to a Brainfuck script that has the correct password encoded in its memory pointer logic. 
-   - It outputs `1` if correct, and `0` if incorrect.
-2. **Database Encryption (`encrypt.bf`)**: 
-   - Before saving a new task to the SQLite database, the text is encrypted using a Brainfuck cipher (a memory shift).
-   - Only encrypted data rests in `todos.db`.
-3. **HTML Presentation & Decryption (`format_task.bf`)**:
-   - The UI rendering is not done by Jinja templates.
-   - A massive Brainfuck script (formatted as a giant ASCII Art Brain) decrypts the task from the database on-the-fly.
-   - It then dynamically generates the HTML `<li>` tags, inline CSS styling, a reversed version of the text, and a visual length indicator.
+## Architecture
 
-## 🏗️ Architecture
+- `app.py`: Flask application factory, routes, config, CSRF, sanitizer, SQLite access, and healthcheck.
+- `bf_interpreter.py`: bounded Brainfuck interpreter with step and output limits.
+- `generate_login_bf.py`: generates Brainfuck login verifier code from an environment-provided password.
+- `encrypt.bf`: Brainfuck task transformation before storage.
+- `format_task.bf`: Brainfuck presentation formatter for stored tasks.
+- `templates/` and `static/`: authenticated UI, login, error page, and shared CSS.
+- `deploy/`: production-ready examples for env, systemd, and Nginx.
+- `tests/`: security and operational smoke tests.
 
-- **Backend Wrapper:** Python with Flask (`app.py`).
-- **Database:** SQLite (single table `todos`).
-- **Brainfuck Engine:** A custom, highly-optimized Python Brainfuck Interpreter (`bf_interpreter.py`) built from scratch to avoid external dependencies.
-- **Production Server:** Gunicorn managed by Systemd (`brainfuck.service`).
-- **Reverse Proxy & SSL:** Nginx with Let's Encrypt (Certbot) on a VPS.
+## Security Model
 
-## ⚠️ Security Disclaimer (For Educational Purposes Only)
+This app is still intentionally small, but the deployment assumes the internet is hostile.
 
-This application is deployed as a **personal proof-of-concept**. It is intentionally small, but the public deployment should still be treated as production: secrets live outside git, mutating requests use CSRF protection, and rendered Brainfuck HTML is sanitized.
+- `BRAINFUCK_SECRET_KEY` or `SECRET_KEY` is required and must be stable across Gunicorn workers.
+- `BRAINFUCK_PASSWORD` is required and must never be committed.
+- Cookies are `HttpOnly`, `Secure`, and `SameSite=Lax` by default.
+- Sessions are permanent with configurable lifetime through `BRAINFUCK_SESSION_LIFETIME_SECONDS`.
+- CSRF tokens are required for all form submissions.
+- Delete and logout use POST, never GET.
+- User task input is escaped before storage, then Brainfuck-rendered HTML is sanitized by allowlist before template output.
+- Nginx examples include request size limits, login/mutation rate limits, CSP, and Cloudflare origin guard.
 
-1. **Password Management:** The login password must be supplied through the `BRAINFUCK_PASSWORD` environment variable. It is compiled into Brainfuck at process startup and must not be committed.
-2. **Session Secret:** The Flask signing key must be supplied through `BRAINFUCK_SECRET_KEY` or `SECRET_KEY`. It must be stable across Gunicorn workers and must not be committed.
-3. **HTML Rendering:** Brainfuck still generates the task HTML, but the Python wrapper escapes task input and applies a strict allowlist sanitizer to the generated HTML before it reaches the template.
-4. **Request Safety:** Login, add, delete, and logout flows require CSRF tokens. Delete and logout use POST, not GET.
-5. **Runtime Limits:** Request size, task length, Brainfuck execution steps, and Brainfuck output length are bounded by environment-configurable limits.
+## Local Development
 
-## 💻 Setup & Running (Local Development)
+Requirements:
 
-### Requirements
-- Python 3.7+
-- Flask and Gunicorn (`pip install -r requirements.txt`)
+- Python 3.13
+- `pip`
 
-### Instructions
-
-1. **Create a virtual environment (recommended):**
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Configure local secrets:**
-   ```bash
-   export BRAINFUCK_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
-   export BRAINFUCK_PASSWORD="choose-a-private-password"
-   ```
-
-4. **Run the application:**
-   ```bash
-   python app.py
-   ```
-   *Note: The application dynamically binds to the first available port starting from `5000` to strictly adhere to a "No Process Termination" mandate.*
-
-5. **Access the application:**
-   Open your browser and navigate to the address shown in your terminal.
-   Configure `BRAINFUCK_PASSWORD` and `BRAINFUCK_SECRET_KEY` before starting the app.
-
-## ✅ Tests
-
-Run the security smoke tests with:
+Setup:
 
 ```bash
-python -m unittest
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements-dev.txt
 ```
 
-## 🔐 Deployment Notes
+Configure local secrets:
+
+```bash
+export BRAINFUCK_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
+export BRAINFUCK_PASSWORD="choose-a-private-password"
+export BRAINFUCK_COOKIE_SECURE=0
+```
+
+Run locally:
+
+```bash
+python app.py
+```
+
+Run checks:
+
+```bash
+make PYTHON=./venv/bin/python check
+```
+
+Healthcheck:
+
+```bash
+curl http://127.0.0.1:5000/healthz
+```
+
+`python app.py` binds to the first free local port starting at `5000`.
+
+## Deployment
 
 Example production files live in `deploy/`:
 
-- `deploy/brainfuck.env.example`: copy to `/etc/brainfuck/brainfuck.env`, fill with real secrets, and `chmod 600`.
-- `deploy/brainfuck.service.example`: systemd service with an env file and hardening options.
-- `deploy/nginx-brainfuck.conf.example`: reverse proxy, rate limits, CSP, HTTPS redirect, and small body limit.
+- `deploy/brainfuck.env.example`: copy to `/etc/brainfuck/brainfuck.env`, fill with real values, and `chmod 600`.
+- `deploy/brainfuck.service.example`: Gunicorn service with env file and systemd hardening.
+- `deploy/nginx-brainfuck.conf.example`: reverse proxy, HTTPS, rate limits, CSP, body limit, and Cloudflare origin guard.
+
+After code changes on the VPS:
+
+```bash
+sudo systemctl restart brainfuck
+sudo systemctl status brainfuck --no-pager
+```
+
+## Notes
+
+The Brainfuck pieces are deliberately esoteric. The surrounding Python, tests, deployment config, and security controls are intentionally conventional so the project is understandable and operable.
