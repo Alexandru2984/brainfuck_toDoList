@@ -77,7 +77,8 @@ def build_config():
         "SESSION_COOKIE_HTTPONLY": True,
         "SESSION_COOKIE_SECURE": os.environ.get("BRAINFUCK_COOKIE_SECURE", "1") != "0",
         "SESSION_COOKIE_SAMESITE": os.environ.get("BRAINFUCK_COOKIE_SAMESITE", "Lax"),
-        "SECURITY_HEADERS_ENABLED": True,
+        "SECURITY_HEADERS_ENABLED": os.environ.get("BRAINFUCK_SECURITY_HEADERS_ENABLED", "1")
+        != "0",
     }
 
 
