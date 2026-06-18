@@ -7,7 +7,6 @@ import tempfile
 import unittest
 from contextlib import closing
 
-
 os.environ.setdefault("BRAINFUCK_SECRET_KEY", "test-secret")
 os.environ.setdefault("BRAINFUCK_PASSWORD", "test-password")
 os.environ.setdefault("BRAINFUCK_MAX_TASK_LENGTH", "12")
@@ -18,10 +17,9 @@ from bf_interpreter import run_bf
 
 class SecurityTests(unittest.TestCase):
     def setUp(self):
-        db_file = tempfile.NamedTemporaryFile(delete=False)
-        db_file.close()
-        os.unlink(db_file.name)
-        self.db_file = db_file.name
+        with tempfile.NamedTemporaryFile(delete=False) as db_file:
+            self.db_file = db_file.name
+        os.unlink(self.db_file)
         self.app = create_app(
             {
                 "DB_FILE": self.db_file,
@@ -100,7 +98,7 @@ class SecurityTests(unittest.TestCase):
         self.assertIn("Cerere invalida", response.get_data(as_text=True))
 
     def test_brainfuck_output_is_sanitized(self):
-        payload = '<script>alert(1)</script><img src=x onerror=alert(1)>'
+        payload = "<script>alert(1)</script><img src=x onerror=alert(1)>"
         with self.app.app_context():
             rendered = format_with_bf(encrypt_with_bf(payload)).lower()
         self.assertNotIn("<script", rendered)
@@ -113,11 +111,11 @@ class SecurityTests(unittest.TestCase):
             run_bf("+[]", "", max_steps=10)
 
     def test_import_initializes_database_for_gunicorn(self):
-        import_db_file = tempfile.NamedTemporaryFile(delete=False)
-        import_db_file.close()
-        os.unlink(import_db_file.name)
+        with tempfile.NamedTemporaryFile(delete=False) as import_db_file:
+            import_db_path = import_db_file.name
+        os.unlink(import_db_path)
         env = os.environ.copy()
-        env["BRAINFUCK_DB_FILE"] = import_db_file.name
+        env["BRAINFUCK_DB_FILE"] = import_db_path
         env["BRAINFUCK_SECRET_KEY"] = "test-secret"
         env["BRAINFUCK_PASSWORD"] = "test-password"
 
@@ -127,11 +125,11 @@ class SecurityTests(unittest.TestCase):
             env=env,
             cwd=os.getcwd(),
         )
-        with closing(sqlite3.connect(import_db_file.name)) as conn:
+        with closing(sqlite3.connect(import_db_path)) as conn:
             row = conn.execute(
                 "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'todos'"
             ).fetchone()
-        os.unlink(import_db_file.name)
+        os.unlink(import_db_path)
         self.assertEqual(row[0], "todos")
 
 

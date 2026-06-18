@@ -27,7 +27,6 @@ from flask import (
 from bf_interpreter import run_bf
 from generate_login_bf import generate_login_bf
 
-
 BASE_DIR = Path(__file__).resolve().parent
 CSRF_SESSION_KEY = "_csrf_token"
 
@@ -106,9 +105,12 @@ class BFHTMLSanitizer(HTMLParser):
 
         safe_attrs = []
         for name, value in attrs:
-            if name == "class" and value in self.ALLOWED_CLASSES:
-                safe_attrs.append((name, value))
-            elif name == "style" and value in self.ALLOWED_STYLES:
+            if (
+                name == "class"
+                and value in self.ALLOWED_CLASSES
+                or name == "style"
+                and value in self.ALLOWED_STYLES
+            ):
                 safe_attrs.append((name, value))
 
         rendered_attrs = "".join(
@@ -166,9 +168,7 @@ def register_hooks(app):
 
     @app.after_request
     def add_security_headers(response):
-        elapsed_ms = (
-            time.perf_counter() - g.get("request_started_at", time.perf_counter())
-        ) * 1000
+        elapsed_ms = (time.perf_counter() - g.get("request_started_at", time.perf_counter())) * 1000
         if not current_app.config.get("TESTING"):
             current_app.logger.info(
                 "request path=%s method=%s status=%s duration_ms=%.2f",
@@ -294,9 +294,8 @@ def register_routes(app):
             if len(task) > current_app.config["MAX_TASK_LENGTH"]:
                 abort(413)
             encrypted_task = encrypt_with_bf(escape(task, quote=True))
-            with closing(get_db_connection()) as conn:
-                with conn:
-                    conn.execute("INSERT INTO todos (task) VALUES (?)", (encrypted_task,))
+            with closing(get_db_connection()) as conn, conn:
+                conn.execute("INSERT INTO todos (task) VALUES (?)", (encrypted_task,))
         return redirect(url_for("index"))
 
     @app.route("/delete/<int:id>", methods=["POST"])
@@ -305,9 +304,8 @@ def register_routes(app):
             return redirect(url_for("login"))
         validate_csrf()
 
-        with closing(get_db_connection()) as conn:
-            with conn:
-                conn.execute("DELETE FROM todos WHERE id = ?", (id,))
+        with closing(get_db_connection()) as conn, conn:
+            conn.execute("DELETE FROM todos WHERE id = ?", (id,))
         return redirect(url_for("index"))
 
 
@@ -334,14 +332,13 @@ def sanitize_bf_html(html):
 
 
 def init_db(db_file, timeout=5):
-    with closing(sqlite3.connect(db_file, timeout=timeout)) as conn:
-        with conn:
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA busy_timeout=5000")
-            conn.execute(
-                """CREATE TABLE IF NOT EXISTS todos
+    with closing(sqlite3.connect(db_file, timeout=timeout)) as conn, conn:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS todos
                    (id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT NOT NULL)"""
-            )
+        )
 
 
 def get_db_connection():
@@ -349,16 +346,14 @@ def get_db_connection():
         current_app.config["DB_FILE"],
         timeout=current_app.config["SQLITE_TIMEOUT_SECONDS"],
     )
-    conn.execute(
-        f"PRAGMA busy_timeout={current_app.config['SQLITE_TIMEOUT_SECONDS'] * 1000}"
-    )
+    conn.execute(f"PRAGMA busy_timeout={current_app.config['SQLITE_TIMEOUT_SECONDS'] * 1000}")
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def format_with_bf(task):
     try:
-        with open(BASE_DIR / "format_task.bf", "r") as f:
+        with open(BASE_DIR / "format_task.bf") as f:
             bf_code = f.read()
         return sanitize_bf_html(
             run_bf(
@@ -389,7 +384,7 @@ def verify_login_with_bf(password):
 
 def encrypt_with_bf(task):
     try:
-        with open(BASE_DIR / "encrypt.bf", "r") as f:
+        with open(BASE_DIR / "encrypt.bf") as f:
             bf_code = f.read()
         return run_bf(
             bf_code,
