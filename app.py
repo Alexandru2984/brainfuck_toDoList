@@ -24,9 +24,31 @@ def required_env(*names):
     raise RuntimeError(f"Missing required environment variable: {joined_names}")
 
 
+def int_env(name, default):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    try:
+        parsed_value = int(value)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be an integer") from exc
+    if parsed_value <= 0:
+        raise RuntimeError(f"{name} must be greater than zero")
+    return parsed_value
+
+
 app.secret_key = required_env('BRAINFUCK_SECRET_KEY', 'SECRET_KEY')
 LOGIN_BF_CODE = generate_login_bf(required_env('BRAINFUCK_PASSWORD'))
 CSRF_SESSION_KEY = '_csrf_token'
+MAX_TASK_LENGTH = int_env('BRAINFUCK_MAX_TASK_LENGTH', 500)
+MAX_BF_STEPS = int_env('BRAINFUCK_MAX_BF_STEPS', 1_000_000)
+MAX_BF_OUTPUT = int_env('BRAINFUCK_MAX_BF_OUTPUT', 50_000)
+app.config.update(
+    MAX_CONTENT_LENGTH=int_env('BRAINFUCK_MAX_CONTENT_LENGTH', 16 * 1024),
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=os.environ.get('BRAINFUCK_COOKIE_SECURE', '1') != '0',
+    SESSION_COOKIE_SAMESITE=os.environ.get('BRAINFUCK_COOKIE_SAMESITE', 'Lax'),
+)
 
 
 def csrf_token():
@@ -121,15 +143,20 @@ def get_db_connection():
 
 def format_with_bf(task):
     try:
-        with open('format_task.bf', 'r') as f:
+        with open(BASE_DIR / 'format_task.bf', 'r') as f:
             bf_code = f.read()
-        return sanitize_bf_html(run_bf(bf_code, task))
+        return sanitize_bf_html(run_bf(
+            bf_code,
+            task,
+            max_steps=MAX_BF_STEPS,
+            max_output=MAX_BF_OUTPUT,
+        ))
     except Exception as e:
         return f'<li class="task-item">Error executing Brainfuck script: {escape(str(e))}</li>'
 
 def verify_login_with_bf(password):
     try:
-        result = run_bf(LOGIN_BF_CODE, password)
+        result = run_bf(LOGIN_BF_CODE, password, max_steps=MAX_BF_STEPS, max_output=16)
         return result == '1'
     except Exception as e:
         print("Login BF error:", e)
@@ -172,13 +199,13 @@ def index():
         formatted_task = format_with_bf(todo['task'])
         formatted_todos.append({'id': todo['id'], 'html': formatted_task})
         
-    return render_template('index.html', todos=formatted_todos)
+    return render_template('index.html', todos=formatted_todos, max_task_length=MAX_TASK_LENGTH)
 
 def encrypt_with_bf(task):
     try:
-        with open('encrypt.bf', 'r') as f:
+        with open(BASE_DIR / 'encrypt.bf', 'r') as f:
             bf_code = f.read()
-        return run_bf(bf_code, task)
+        return run_bf(bf_code, task, max_steps=MAX_BF_STEPS, max_output=MAX_TASK_LENGTH * 8)
     except Exception as e:
         print("Encrypt BF error:", e)
         return task
@@ -191,6 +218,8 @@ def add():
         
     task = request.form.get('task')
     if task:
+        if len(task) > MAX_TASK_LENGTH:
+            abort(413)
         encrypted_task = encrypt_with_bf(escape(task, quote=True))
         conn = get_db_connection()
         conn.execute('INSERT INTO todos (task) VALUES (?)', (encrypted_task,))
