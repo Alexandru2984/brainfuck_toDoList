@@ -7,6 +7,10 @@ server {
     server_name brainfuck.micutu.com;
     listen 443 ssl;
 
+    if ($from_cloudflare_origin = 0) {
+        return 403;
+    }
+
     client_max_body_size 16k;
 
     location = /login {
