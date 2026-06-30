@@ -307,9 +307,7 @@ def register_routes(app):
             ip = client_ip()
             locked_for = login_lock_remaining(ip)
             if locked_for:
-                current_app.logger.warning(
-                    "login_locked ip=%s retry_after=%s", ip, locked_for
-                )
+                current_app.logger.warning("login_locked ip=%s retry_after=%s", ip, locked_for)
                 return (
                     render_template(
                         "error.html",
@@ -520,9 +518,7 @@ def init_db(db_file, timeout=5):
                     ip TEXT NOT NULL,
                     created_at REAL NOT NULL)"""
         )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts (ip)"
-        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts (ip)")
 
 
 def get_db_connection():

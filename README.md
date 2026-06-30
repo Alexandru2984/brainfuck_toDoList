@@ -9,8 +9,11 @@ The project is a portfolio piece, but it is deployed like a real service: secret
 - Brainfuck-backed login verifier generated at process startup from `BRAINFUCK_PASSWORD`.
 - SQLite todo storage with a Brainfuck transformation pass before insert.
 - Brainfuck-generated task rendering passed through a strict Python HTML sanitizer.
+- Task management: add, mark complete, edit in place (JS-free `<details>` form), delete, and clear all completed; active/done counters and creation timestamps.
+- Responsive, mobile-first UI with a light/dark theme that follows the OS preference and persists an explicit choice; SVG favicon and an installable web app manifest.
 - Flask application factory, healthcheck endpoint, structured request logging, and app-level security headers.
-- CSRF protection for login, add, delete, and logout.
+- CSRF protection for login, add, edit, toggle, delete, clear, and logout.
+- App-level brute-force throttle that locks an IP after repeated failed logins, on top of the Nginx rate limit.
 - Runtime limits for request size, task length, Brainfuck steps, and Brainfuck output.
 - Production examples for env files, systemd, Nginx rate limits, CSP, and Cloudflare origin guard.
 - Local quality gate through `ruff`, `unittest`, `Makefile`, and GitHub Actions CI.
@@ -30,14 +33,17 @@ The project is a portfolio piece, but it is deployed like a real service: secret
 
 This app is still intentionally small, but the deployment assumes the internet is hostile.
 
-- `BRAINFUCK_SECRET_KEY` or `SECRET_KEY` is required and must be stable across Gunicorn workers.
-- `BRAINFUCK_PASSWORD` is required and must never be committed.
+- `BRAINFUCK_SECRET_KEY` or `SECRET_KEY` is required, kept outside git, and must be stable across Gunicorn workers.
+- `BRAINFUCK_PASSWORD` is required and must never be committed. The generated Brainfuck verifier (`login.bf`) encodes the password and is git-ignored; `generate_login_bf.py` prints to stdout by default and never writes it into the repo.
 - Cookies are `HttpOnly`, `Secure`, and `SameSite=Lax` by default.
 - Sessions are permanent with configurable lifetime through `BRAINFUCK_SESSION_LIFETIME_SECONDS`.
-- CSRF tokens are required for all form submissions.
-- Delete and logout use POST, never GET.
+- CSRF tokens are required for all form submissions; all mutations use POST, never GET.
+- Failed logins are throttled per real client IP (`CF-Connecting-IP` behind Cloudflare via `ProxyFix`) and lock the IP after `BRAINFUCK_LOGIN_MAX_ATTEMPTS` within `BRAINFUCK_LOGIN_WINDOW_SECONDS`.
+- Authenticated responses send `Cache-Control: no-store`; responses also set `Cross-Origin-Opener-Policy: same-origin`. Brainfuck errors are logged, never reflected to the page.
 - User task input is escaped before storage, then Brainfuck-rendered HTML is sanitized by allowlist before template output.
 - Nginx examples include request size limits, login/mutation rate limits, CSP, and Cloudflare origin guard.
+
+See `deploy/brainfuck.env.example` for the full list of configuration variables, including the proxy and throttle settings.
 
 ## Local Development
 
