@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import hmac
 import logging
 import os
@@ -12,6 +14,7 @@ from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
 
+from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 from flask import (
     Flask,
     abort,
@@ -87,7 +90,26 @@ def build_config():
         "TRUSTED_IP_HEADER": os.environ.get("BRAINFUCK_TRUSTED_IP_HEADER", "CF-Connecting-IP"),
         "LOGIN_MAX_ATTEMPTS": int_env("BRAINFUCK_LOGIN_MAX_ATTEMPTS", 8),
         "LOGIN_WINDOW_SECONDS": int_env("BRAINFUCK_LOGIN_WINDOW_SECONDS", 300),
+        # Comma-separated Fernet keys; first encrypts, all can decrypt (rotation).
+        "ENCRYPTION_KEY": os.environ.get("BRAINFUCK_ENCRYPTION_KEY", ""),
     }
+
+
+def build_fernet(encryption_key, secret_key):
+    """Build a MultiFernet for at-rest task encryption.
+
+    Uses the configured ``BRAINFUCK_ENCRYPTION_KEY`` (one or more comma-separated
+    Fernet keys to support rotation). When unset, a stable key is derived from
+    the secret key so the app encrypts out of the box; a dedicated key is
+    strongly recommended in production.
+    """
+    keys = [part.strip() for part in (encryption_key or "").split(",") if part.strip()]
+    if not keys:
+        derived = base64.urlsafe_b64encode(
+            hashlib.sha256(("bf-fernet-v1:" + secret_key).encode()).digest()
+        )
+        keys = [derived.decode("ascii")]
+    return MultiFernet([Fernet(key) for key in keys])
 
 
 class BFHTMLSanitizer(HTMLParser):
@@ -152,6 +174,9 @@ def create_app(config_overrides=None):
     if config_overrides:
         app.config.update(config_overrides)
     app.secret_key = app.config["SECRET_KEY"]
+    app.config["FERNET"] = build_fernet(
+        app.config.get("ENCRYPTION_KEY", ""), app.config["SECRET_KEY"]
+    )
 
     if app.config.get("TRUST_PROXY", True):
         hops = app.config.get("PROXY_HOPS", 1)
@@ -159,6 +184,7 @@ def create_app(config_overrides=None):
 
     configure_logging(app)
     init_db(app.config["DB_FILE"], app.config["SQLITE_TIMEOUT_SECONDS"])
+    migrate_storage_encryption(app)
     register_hooks(app)
     register_error_handlers(app)
     register_routes(app)
@@ -270,21 +296,54 @@ def login_required(view):
     return wrapped
 
 
+def encrypt_storage(payload):
+    """Authenticated encryption of a Brainfuck payload (code points 0-255)."""
+    token = current_app.config["FERNET"].encrypt(payload.encode("latin-1", "replace"))
+    return token.decode("ascii")
+
+
+def decrypt_storage(stored):
+    """Recover the Brainfuck payload, tolerating legacy pre-encryption rows."""
+    try:
+        plaintext = current_app.config["FERNET"].decrypt(stored.encode("ascii"))
+        return plaintext.decode("latin-1")
+    except (InvalidToken, ValueError):
+        # Row written before at-rest encryption was introduced; use it directly.
+        return stored
+
+
+def migrate_storage_encryption(app):
+    """Wrap any legacy plaintext task rows in authenticated encryption once."""
+    with app.app_context(), closing(get_db_connection()) as conn, conn:
+        rows = conn.execute("SELECT id, task FROM todos").fetchall()
+        for row in rows:
+            stored = row["task"]
+            try:
+                app.config["FERNET"].decrypt(stored.encode("ascii"))
+                continue
+            except (InvalidToken, ValueError):
+                pass
+            conn.execute(
+                "UPDATE todos SET task = ? WHERE id = ?",
+                (encrypt_storage(stored), row["id"]),
+            )
+
+
 def store_task(conn, task, todo_id=None):
-    """Validate length, escape, Brainfuck-transform, then insert or update."""
+    """Validate length, escape, Brainfuck-transform, encrypt, then insert or update."""
     task = task.strip()
     if not task:
         return False
     if len(task) > current_app.config["MAX_TASK_LENGTH"]:
         abort(413)
-    encrypted_task = encrypt_with_bf(escape(task, quote=True))
+    stored_task = encrypt_storage(encrypt_with_bf(escape(task, quote=True)))
     if todo_id is None:
         conn.execute(
             "INSERT INTO todos (task, done, created_at) VALUES (?, 0, ?)",
-            (encrypted_task, time.time()),
+            (stored_task, time.time()),
         )
     else:
-        conn.execute("UPDATE todos SET task = ? WHERE id = ?", (encrypted_task, todo_id))
+        conn.execute("UPDATE todos SET task = ? WHERE id = ?", (stored_task, todo_id))
     return True
 
 
@@ -355,7 +414,7 @@ def register_routes(app):
             formatted_todos.append(
                 {
                     "id": todo["id"],
-                    "html": format_with_bf(todo["task"]),
+                    "html": format_with_bf(decrypt_storage(todo["task"])),
                     "done": bool(todo["done"]),
                     "created_at": format_timestamp(todo["created_at"]),
                 }

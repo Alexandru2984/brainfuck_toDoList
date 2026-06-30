@@ -40,6 +40,7 @@ This app is still intentionally small, but the deployment assumes the internet i
 - CSRF tokens are required for all form submissions; all mutations use POST, never GET.
 - Failed logins are throttled per real client IP (`CF-Connecting-IP` behind Cloudflare via `ProxyFix`) and lock the IP after `BRAINFUCK_LOGIN_MAX_ATTEMPTS` within `BRAINFUCK_LOGIN_WINDOW_SECONDS`.
 - Authenticated responses send `Cache-Control: no-store`; responses also set `Cross-Origin-Opener-Policy: same-origin`. Brainfuck errors are logged, never reflected to the page.
+- Tasks are encrypted at rest with authenticated encryption (Fernet/`MultiFernet`, key rotation supported) wrapped around the Brainfuck transform, so the SQLite database holds ciphertext, not readable tasks. Set a dedicated `BRAINFUCK_ENCRYPTION_KEY`.
 - User task input is escaped before storage, then Brainfuck-rendered HTML is sanitized by allowlist before template output.
 - Nginx examples include request size limits, login/mutation rate limits, CSP, and Cloudflare origin guard.
 

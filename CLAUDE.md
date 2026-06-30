@@ -33,8 +33,11 @@ vars exported (an exported password mismatching the test password breaks login).
   Output is byte-accurate (one code point per byte); do not change this — the
   encrypt/format round-trip depends on it. Decode to UTF-8 only at display time.
 - `generate_login_bf.py`: builds the login verifier from a password.
-- `encrypt.bf`: a per-byte +1 transform applied before storage (obfuscation, not
-  encryption). `format_task.bf`: renders a stored task to whitelisted HTML.
+- `encrypt.bf`: a per-byte +1 transform (the Brainfuck "cipher", obfuscation
+  only). `format_task.bf`: renders a stored task to whitelisted HTML.
+- Real confidentiality is a separate layer: `encrypt_storage`/`decrypt_storage`
+  wrap the Brainfuck payload in Fernet (`MultiFernet`) before/after the DB. The
+  DB stores ciphertext; `decrypt_storage` falls back to legacy plaintext rows.
 - `templates/`, `static/`: UI, CSS theme tokens, and `theme.js` toggle.
 - `deploy/`: production env/systemd/Nginx examples.
 
