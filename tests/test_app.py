@@ -98,6 +98,29 @@ class FeatureTests(BaseAppTest):
         self.assertIn("\U0001f9e0", html)  # brain emoji renders, not mojibake
 
 
+class SearchFilterTests(BaseAppTest):
+    def populate(self):
+        self.login()
+        self.add("Buy milk")
+        self.add("Walk the dog")
+        self.client.post("/toggle/1", data={"csrf_token": self.token("/")})  # Buy milk -> done
+
+    def test_status_filter(self):
+        self.populate()
+        active = self.client.get("/?filter=active").get_data(as_text=True)
+        self.assertIn("Walk the dog", active)
+        self.assertNotIn("Buy milk", active)
+        done = self.client.get("/?filter=done").get_data(as_text=True)
+        self.assertIn("Buy milk", done)
+        self.assertNotIn("Walk the dog", done)
+
+    def test_search_matches_plaintext(self):
+        self.populate()
+        result = self.client.get("/?q=dog").get_data(as_text=True)
+        self.assertIn("Walk the dog", result)
+        self.assertNotIn("klim yuB", result)  # "Buy milk" reversed is absent when filtered out
+
+
 class EncryptionTests(BaseAppTest):
     def stored_task(self):
         with closing(sqlite3.connect(self.db_file)) as conn:

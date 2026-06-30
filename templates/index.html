@@ -45,6 +45,19 @@
         </form>
     </section>
 
+    <section class="toolbar">
+        <form action="{{ url_for('index') }}" method="GET" class="search-form" role="search">
+            <input type="search" name="q" value="{{ query }}" placeholder="Cauta taskuri..." aria-label="Cauta taskuri" autocomplete="off">
+            {% if status != 'all' %}<input type="hidden" name="filter" value="{{ status }}">{% endif %}
+            <button type="submit" class="ghost-button">Cauta</button>
+        </form>
+        <nav class="filters" aria-label="Filtre">
+            <a class="filter-chip{% if status == 'all' %} is-active{% endif %}" href="{{ url_for('index', filter='all', q=query or none) }}">Toate</a>
+            <a class="filter-chip{% if status == 'active' %} is-active{% endif %}" href="{{ url_for('index', filter='active', q=query or none) }}">Active</a>
+            <a class="filter-chip{% if status == 'done' %} is-active{% endif %}" href="{{ url_for('index', filter='done', q=query or none) }}">Finalizate</a>
+        </nav>
+    </section>
+
     <section class="statsbar" aria-label="Statistici">
         <div class="stats">
             <span class="stat"><strong>{{ total_count }}</strong> total</span>
@@ -91,7 +104,11 @@
                 </form>
             </div>
         {% else %}
-            <div class="empty-state">Niciun task. Adauga unul mai sus.</div>
+            {% if query or status != 'all' %}
+                <div class="empty-state">Niciun rezultat pentru filtrul curent.</div>
+            {% else %}
+                <div class="empty-state">Niciun task. Adauga unul mai sus.</div>
+            {% endif %}
         {% endfor %}
     </section>
 </body>

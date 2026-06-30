@@ -10,7 +10,7 @@ import time
 from contextlib import closing
 from datetime import datetime, timedelta
 from functools import wraps
-from html import escape
+from html import escape, unescape
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -312,6 +312,15 @@ def decrypt_storage(stored):
         return stored
 
 
+def bf_payload_to_text(payload):
+    """Reverse the Brainfuck transform and HTML-escaping to recover plaintext.
+
+    Used for in-memory search; the stored bytes stay encrypted at rest.
+    """
+    caesar_reversed = "".join(chr((ord(ch) - 1) % 256) for ch in payload)
+    return unescape(caesar_reversed)
+
+
 def migrate_storage_encryption(app):
     """Wrap any legacy plaintext task rows in authenticated encryption once."""
     with app.app_context(), closing(get_db_connection()) as conn, conn:
@@ -401,21 +410,35 @@ def register_routes(app):
     @app.route("/")
     @login_required
     def index():
+        query = request.args.get("q", "").strip()
+        status = request.args.get("filter", "all")
+        if status not in {"all", "active", "done"}:
+            status = "all"
+
         with closing(get_db_connection()) as conn:
             todos = conn.execute(
                 "SELECT id, task, done, created_at FROM todos ORDER BY done ASC, id DESC"
             ).fetchall()
 
+        total_count = len(todos)
+        active_count = sum(1 for todo in todos if not todo["done"])
+        needle = query.lower()
+
         formatted_todos = []
-        active_count = 0
         for todo in todos:
-            if not todo["done"]:
-                active_count += 1
+            done = bool(todo["done"])
+            if status == "active" and done:
+                continue
+            if status == "done" and not done:
+                continue
+            payload = decrypt_storage(todo["task"])
+            if needle and needle not in bf_payload_to_text(payload).lower():
+                continue
             formatted_todos.append(
                 {
                     "id": todo["id"],
-                    "html": format_with_bf(decrypt_storage(todo["task"])),
-                    "done": bool(todo["done"]),
+                    "html": format_with_bf(payload),
+                    "done": done,
                     "created_at": format_timestamp(todo["created_at"]),
                 }
             )
@@ -423,9 +446,12 @@ def register_routes(app):
         return render_template(
             "index.html",
             todos=formatted_todos,
-            total_count=len(formatted_todos),
+            total_count=total_count,
             active_count=active_count,
-            done_count=len(formatted_todos) - active_count,
+            done_count=total_count - active_count,
+            shown_count=len(formatted_todos),
+            query=query,
+            status=status,
             max_task_length=current_app.config["MAX_TASK_LENGTH"],
         )
 
