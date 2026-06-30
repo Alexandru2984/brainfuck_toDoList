@@ -539,14 +539,17 @@ def format_with_bf(task):
     try:
         with open(BASE_DIR / "format_task.bf") as f:
             bf_code = f.read()
-        return sanitize_bf_html(
-            run_bf(
-                bf_code,
-                task,
-                max_steps=current_app.config["MAX_BF_STEPS"],
-                max_output=current_app.config["MAX_BF_OUTPUT"],
-            )
+        raw = run_bf(
+            bf_code,
+            task,
+            max_steps=current_app.config["MAX_BF_STEPS"],
+            max_output=current_app.config["MAX_BF_OUTPUT"],
         )
+        # The formatter emits raw UTF-8 bytes (e.g. its emoji label) one code
+        # point per byte. Re-decode the byte stream as UTF-8 for display only;
+        # storage and the encrypt round-trip stay byte-accurate and untouched.
+        decoded = raw.encode("latin-1", "replace").decode("utf-8", "replace")
+        return sanitize_bf_html(decoded)
     except Exception:
         current_app.logger.exception("Brainfuck formatter failed")
         return '<li class="task-item">Task indisponibil momentan.</li>'

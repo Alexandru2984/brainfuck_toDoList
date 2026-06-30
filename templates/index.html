@@ -4,7 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Brainfuck Todo List</title>
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0e1117" media="(prefers-color-scheme: dark)">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+    <script src="{{ url_for('static', filename='theme.js') }}"></script>
     <script defer src="https://analytics.micutu.com/script.js" data-website-id="6ccf54d7-10de-4daf-9882-23dc1ff95ffd"></script>
 </head>
 <body class="app-shell">
@@ -13,10 +18,13 @@
             <p class="eyebrow">Brainfuck Todo</p>
             <h1>BF Todo Formatter</h1>
         </div>
-        <form action="{{ url_for('logout') }}" method="POST">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="ghost-button">Logout</button>
-        </form>
+        <div class="topbar-actions">
+            <button type="button" id="theme-toggle" class="icon-button" aria-label="Comuta tema">☾</button>
+            <form action="{{ url_for('logout') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="ghost-button">Logout</button>
+            </form>
+        </div>
     </header>
 
     {% with messages = get_flashed_messages(with_categories=true) %}

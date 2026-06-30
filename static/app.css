@@ -1,37 +1,85 @@
+/* ----------------------------------------------------------------------------
+   Theme tokens. Light is the default; dark applies via an explicit
+   data-theme="dark" on <html> (set by theme.js) or via the OS preference when
+   the user has not chosen a theme.
+---------------------------------------------------------------------------- */
 :root {
-    color-scheme: light;
-    --bg: #f4f6f8;
-    --panel: #ffffff;
-    --text: #14181f;
-    --muted: #687385;
-    --line: #d8dee8;
-    --primary: #1769e0;
-    --primary-strong: #0f4fa8;
-    --danger: #c73645;
-    --danger-strong: #982634;
-    --shadow: 0 12px 30px rgba(20, 24, 31, 0.08);
+    --bg: #f5f7fb;
+    --card: #ffffff;
+    --text: #11151c;
+    --muted: #5b6473;
+    --line: #e2e7f0;
+    --primary: #2f6df6;
+    --primary-strong: #1b53cf;
+    --danger: #e0364b;
+    --danger-strong: #b3243a;
+    --accent-pink: #d63384;
+    --accent-green: #1f9d57;
+    --ring: rgba(47, 109, 246, 0.22);
+    --shadow: 0 10px 30px rgba(16, 24, 40, 0.08);
+}
+
+:root[data-theme="dark"] {
+    --bg: #0e1117;
+    --card: #161b24;
+    --text: #e6e9ef;
+    --muted: #9aa4b2;
+    --line: #262e3a;
+    --primary: #4f8bff;
+    --primary-strong: #6ea0ff;
+    --danger: #ff6b7d;
+    --danger-strong: #ff8c99;
+    --accent-pink: #ff79c6;
+    --accent-green: #46d68a;
+    --ring: rgba(79, 139, 255, 0.3);
+    --shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg: #0e1117;
+        --card: #161b24;
+        --text: #e6e9ef;
+        --muted: #9aa4b2;
+        --line: #262e3a;
+        --primary: #4f8bff;
+        --primary-strong: #6ea0ff;
+        --danger: #ff6b7d;
+        --danger-strong: #ff8c99;
+        --accent-pink: #ff79c6;
+        --accent-green: #46d68a;
+        --ring: rgba(79, 139, 255, 0.3);
+        --shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+    }
 }
 
 * {
     box-sizing: border-box;
 }
 
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
 body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    transition: background 0.2s ease, color 0.2s ease;
 }
 
+/* ------------------------------------------------------------------ layout */
 .app-shell {
-    width: min(760px, calc(100% - 32px));
-    margin: 36px auto;
+    width: min(760px, calc(100% - 28px));
+    margin: clamp(20px, 5vw, 40px) auto;
 }
 
 .auth-shell,
 .error-shell {
-    width: min(440px, calc(100% - 32px));
-    margin: 92px auto;
+    width: min(440px, calc(100% - 28px));
+    margin: clamp(40px, 12vh, 110px) auto;
 }
 
 .topbar {
@@ -42,33 +90,40 @@ body {
     margin-bottom: 22px;
 }
 
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .eyebrow {
     color: var(--muted);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
-    letter-spacing: 0;
+    letter-spacing: 0.08em;
     margin: 0 0 6px;
     text-transform: uppercase;
 }
 
 h1 {
-    font-size: 32px;
-    line-height: 1.1;
+    font-size: clamp(24px, 6vw, 32px);
+    line-height: 1.12;
     margin: 0;
 }
 
 .panel {
-    background: var(--panel);
+    background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 14px;
     box-shadow: var(--shadow);
-    padding: 24px;
+    padding: clamp(18px, 4vw, 24px);
 }
 
 .compose {
-    margin-bottom: 18px;
+    margin-bottom: 16px;
 }
 
+/* ------------------------------------------------------------------ forms */
 .task-form {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -78,32 +133,52 @@ h1 {
 input[type="text"],
 input[type="password"] {
     width: 100%;
+    background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: 10px;
     color: var(--text);
     font-size: 16px;
-    min-height: 44px;
-    padding: 10px 12px;
+    min-height: 46px;
+    padding: 10px 14px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-input:focus {
+input::placeholder {
+    color: var(--muted);
+}
+
+input:focus-visible {
     border-color: var(--primary);
-    outline: 3px solid rgba(23, 105, 224, 0.18);
+    outline: none;
+    box-shadow: 0 0 0 4px var(--ring);
 }
 
 button,
 .button-link {
     align-items: center;
     border: 0;
-    border-radius: 6px;
+    border-radius: 10px;
     cursor: pointer;
     display: inline-flex;
+    font-family: inherit;
     font-size: 15px;
     font-weight: 700;
     justify-content: center;
-    min-height: 44px;
+    min-height: 46px;
     padding: 10px 18px;
     text-decoration: none;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+        transform 0.05s ease;
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+button:focus-visible,
+.button-link:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px var(--ring);
 }
 
 .primary-button {
@@ -117,13 +192,29 @@ button,
 
 .ghost-button {
     background: transparent;
-    color: var(--danger);
-    min-height: 0;
-    padding: 4px 0;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    min-height: 40px;
+    padding: 6px 14px;
 }
 
 .ghost-button:hover {
-    color: var(--danger-strong);
+    color: var(--text);
+    border-color: var(--muted);
+}
+
+.icon-button {
+    width: 40px;
+    min-height: 40px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-size: 18px;
+}
+
+.icon-button:hover {
+    border-color: var(--muted);
 }
 
 .auth-form {
@@ -136,86 +227,248 @@ button,
 .empty-state,
 .error-copy {
     color: var(--muted);
-    line-height: 1.5;
+    line-height: 1.55;
 }
 
 .error-message {
-    background: #fff1f3;
-    border: 1px solid #ffd1d7;
-    border-radius: 6px;
-    color: var(--danger);
-    font-weight: 700;
-    padding: 10px 12px;
+    background: color-mix(in srgb, var(--danger) 14%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--card));
+    border-radius: 10px;
+    color: var(--danger-strong);
+    font-weight: 600;
+    padding: 11px 14px;
 }
 
+/* ------------------------------------------------------------------ flash */
+.flash-stack {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.flash {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 14px;
+}
+
+.flash-success {
+    background: color-mix(in srgb, var(--accent-green) 14%, var(--card));
+    border-color: color-mix(in srgb, var(--accent-green) 40%, var(--card));
+    color: var(--accent-green);
+}
+
+/* ----------------------------------------------------------------- stats */
+.statsbar {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    padding: 0 4px;
+}
+
+.stats {
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 13px;
+    gap: 16px;
+}
+
+.stat strong {
+    color: var(--text);
+    font-size: 15px;
+}
+
+/* ------------------------------------------------------------- task list */
 .task-list {
     display: grid;
     gap: 12px;
 }
 
 .task-wrapper {
-    position: relative;
+    align-items: start;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    display: grid;
+    gap: 12px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 14px 16px;
 }
 
+.task-wrapper.is-done {
+    opacity: 0.72;
+}
+
+.toggle-form,
 .delete-form {
-    display: inline;
+    display: flex;
 }
 
-.task-item {
-    display: block;
-    padding-right: 52px !important;
-    position: relative;
+.toggle-btn {
+    align-self: center;
+    background: transparent;
+    border: 2px solid var(--line);
+    border-radius: 999px;
+    color: #fff;
+    font-size: 15px;
+    height: 28px;
+    min-height: 28px;
+    padding: 0;
+    width: 28px;
+}
+
+.toggle-btn:hover {
+    border-color: var(--accent-green);
+}
+
+.toggle-btn[aria-pressed="true"] {
+    background: var(--accent-green);
+    border-color: var(--accent-green);
+}
+
+.task-body {
+    min-width: 0;
+}
+
+.task-meta {
+    align-items: center;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 12px;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.edit {
+    font-size: 12px;
+}
+
+.edit summary {
+    color: var(--primary);
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+    user-select: none;
+}
+
+.edit summary::-webkit-details-marker {
+    display: none;
+}
+
+.edit summary:hover {
+    text-decoration: underline;
+}
+
+.edit-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    margin-top: 10px;
 }
 
 .delete-btn {
-    background: #fff;
+    align-self: center;
+    background: transparent;
     border: 1px solid var(--line);
     border-radius: 999px;
     color: var(--danger);
     font-size: 18px;
-    font-weight: 700;
-    height: 34px;
-    min-height: 34px;
+    height: 32px;
+    min-height: 32px;
     padding: 0;
-    position: absolute;
-    right: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 34px;
+    width: 32px;
 }
 
 .delete-btn:hover {
+    background: color-mix(in srgb, var(--danger) 12%, var(--card));
+    border-color: var(--danger);
     color: var(--danger-strong);
-    border-color: #f0a7b0;
 }
 
 .empty-state {
-    background: var(--panel);
+    background: var(--card);
     border: 1px dashed var(--line);
-    border-radius: 8px;
-    padding: 22px;
+    border-radius: 14px;
+    padding: 26px;
     text-align: center;
 }
 
+/* ----------------------------------------------------------------------------
+   Re-skin the Brainfuck formatter output. The .task-item markup ships with
+   hard-coded inline styles (whitelisted by the server sanitizer), so we override
+   them with !important and remap the accent colors onto theme-aware tokens so
+   the cards read well in both light and dark mode.
+---------------------------------------------------------------------------- */
+.task-item {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    color: var(--text) !important;
+    font-family: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas,
+        monospace !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.task-item strong[style*="#007bff"] {
+    color: var(--primary) !important;
+    font-size: 0.78em !important;
+    letter-spacing: 0.02em;
+}
+
+.task-item div[style*="#111"] {
+    color: var(--text) !important;
+    font-size: 1.15em !important;
+    margin-top: 8px !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.task-item div[style*="#d63384"] {
+    color: var(--accent-pink) !important;
+    overflow-wrap: anywhere;
+}
+
+.task-item div[style*="#28a745"] {
+    color: var(--accent-green) !important;
+    overflow-wrap: anywhere;
+}
+
+.is-done .task-item div[style*="#111"] {
+    text-decoration: line-through;
+}
+
+/* ------------------------------------------------------------- responsive */
 @media (max-width: 560px) {
-    .app-shell {
-        margin-top: 20px;
-    }
-
-    .topbar,
-    .task-form {
-        grid-template-columns: 1fr;
-    }
-
     .topbar {
-        display: grid;
+        align-items: center;
     }
 
-    .task-form {
-        display: grid;
+    .task-form,
+    .edit-form {
+        grid-template-columns: 1fr;
     }
 
     .primary-button {
         width: 100%;
+    }
+
+    .task-wrapper {
+        gap: 10px;
+        padding: 12px 13px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
     }
 }
