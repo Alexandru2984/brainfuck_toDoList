@@ -39,8 +39,22 @@ def main(argv):
     if not password:
         raise SystemExit("Usage: generate_login_bf.py <password> [output_path]")
 
-    output_path = Path(argv[2]) if len(argv) > 2 else Path("login.bf")
-    output_path.write_text(generate_login_bf(password))
+    bf_code = generate_login_bf(password)
+
+    # SECURITY: the generated Brainfuck encodes each password character as a run
+    # of '-' equal to its ASCII code, so the file is a plaintext-equivalent of the
+    # password. Default to stdout and require an explicit path to write a file, so
+    # the verifier is never accidentally committed. The app generates this code in
+    # memory at startup; no file is needed at runtime.
+    if len(argv) > 2:
+        Path(argv[2]).write_text(bf_code)
+        print(
+            f"WARNING: wrote login verifier to {argv[2]}. It reveals the password — "
+            "do not commit it (login.bf is git-ignored).",
+            file=sys.stderr,
+        )
+    else:
+        sys.stdout.write(bf_code)
 
 
 if __name__ == "__main__":

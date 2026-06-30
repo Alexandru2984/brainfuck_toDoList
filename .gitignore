@@ -15,6 +15,9 @@ ENV/
 brainfuck.env
 *.secret
 
+# Generated Brainfuck login verifier — encodes the password, never commit.
+login.bf
+
 # Database
 todos.db
 *.sqlite3
