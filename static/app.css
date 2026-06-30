@@ -345,6 +345,17 @@ input[type="search"]:focus-visible {
     font-size: 15px;
 }
 
+.statsbar-actions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.statsbar-actions .ghost-button {
+    font-size: 13px;
+}
+
 /* ------------------------------------------------------------- task list */
 .task-list {
     display: grid;

@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import sqlite3
@@ -119,6 +120,26 @@ class SearchFilterTests(BaseAppTest):
         result = self.client.get("/?q=dog").get_data(as_text=True)
         self.assertIn("Walk the dog", result)
         self.assertNotIn("klim yuB", result)  # "Buy milk" reversed is absent when filtered out
+
+
+class ExportTests(BaseAppTest):
+    def test_export_json(self):
+        self.login()
+        self.add("Buy milk")
+        response = self.client.get("/export?format=json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertIn("filename=todos.json", response.headers.get("Content-Disposition", ""))
+        data = json.loads(response.get_data(as_text=True))
+        self.assertEqual(data[0]["task"], "Buy milk")
+        self.assertFalse(data[0]["done"])
+
+    def test_export_csv_neutralizes_formula(self):
+        self.login()
+        self.add("=SUM(A1:A2)")
+        response = self.client.get("/export?format=csv")
+        self.assertEqual(response.mimetype, "text/csv")
+        self.assertIn("'=SUM(A1:A2)", response.get_data(as_text=True))
 
 
 class EncryptionTests(BaseAppTest):

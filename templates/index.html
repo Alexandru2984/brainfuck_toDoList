@@ -64,12 +64,16 @@
             <span class="stat"><strong>{{ active_count }}</strong> active</span>
             <span class="stat"><strong>{{ done_count }}</strong> finalizate</span>
         </div>
-        {% if done_count %}
-            <form action="{{ url_for('clear_completed') }}" method="POST">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="ghost-button">Sterge finalizate</button>
-            </form>
-        {% endif %}
+        <div class="statsbar-actions">
+            <a class="button-link ghost-button" href="{{ url_for('export', format='json') }}">Export JSON</a>
+            <a class="button-link ghost-button" href="{{ url_for('export', format='csv') }}">Export CSV</a>
+            {% if done_count %}
+                <form action="{{ url_for('clear_completed') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="ghost-button">Sterge finalizate</button>
+                </form>
+            {% endif %}
+        </div>
     </section>
 
     <section class="task-list" aria-label="Taskuri">

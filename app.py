@@ -1,6 +1,9 @@
 import base64
+import csv
 import hashlib
 import hmac
+import io
+import json
 import logging
 import os
 import secrets
@@ -17,6 +20,7 @@ from pathlib import Path
 from cryptography.fernet import Fernet, InvalidToken, MultiFernet
 from flask import (
     Flask,
+    Response,
     abort,
     current_app,
     flash,
@@ -500,6 +504,43 @@ def register_routes(app):
             flash(f"{removed} task-uri finalizate sterse.", "success")
         return redirect(url_for("index"))
 
+    @app.route("/export")
+    @login_required
+    def export():
+        fmt = request.args.get("format", "json").lower()
+        with closing(get_db_connection()) as conn:
+            rows = conn.execute(
+                "SELECT id, task, done, created_at FROM todos ORDER BY id"
+            ).fetchall()
+        records = [
+            {
+                "id": row["id"],
+                "task": bf_payload_to_text(decrypt_storage(row["task"])),
+                "done": bool(row["done"]),
+                "created_at": iso_timestamp(row["created_at"]),
+            }
+            for row in rows
+        ]
+
+        if fmt == "csv":
+            buffer = io.StringIO()
+            writer = csv.DictWriter(buffer, fieldnames=["id", "task", "done", "created_at"])
+            writer.writeheader()
+            for record in records:
+                writer.writerow({**record, "task": csv_safe(record["task"])})
+            return Response(
+                buffer.getvalue(),
+                mimetype="text/csv",
+                headers={"Content-Disposition": "attachment; filename=todos.csv"},
+            )
+
+        body = json.dumps(records, ensure_ascii=False, indent=2)
+        return Response(
+            body,
+            mimetype="application/json",
+            headers={"Content-Disposition": "attachment; filename=todos.json"},
+        )
+
 
 def format_timestamp(value):
     if not value:
@@ -508,6 +549,22 @@ def format_timestamp(value):
         return datetime.fromtimestamp(value).strftime("%d %b %Y, %H:%M")
     except (ValueError, OverflowError, OSError):
         return ""
+
+
+def iso_timestamp(value):
+    if not value:
+        return ""
+    try:
+        return datetime.fromtimestamp(value).isoformat(timespec="seconds")
+    except (ValueError, OverflowError, OSError):
+        return ""
+
+
+def csv_safe(text):
+    """Neutralize spreadsheet formula injection in exported CSV cells."""
+    if text and text[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + text
+    return text
 
 
 def client_ip():
