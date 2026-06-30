@@ -23,6 +23,7 @@ from flask import (
     session,
     url_for,
 )
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from bf_interpreter import run_bf
 from generate_login_bf import generate_login_bf
@@ -79,6 +80,11 @@ def build_config():
         "SESSION_COOKIE_SAMESITE": os.environ.get("BRAINFUCK_COOKIE_SAMESITE", "Lax"),
         "SECURITY_HEADERS_ENABLED": os.environ.get("BRAINFUCK_SECURITY_HEADERS_ENABLED", "1")
         != "0",
+        "TRUST_PROXY": bool_env("BRAINFUCK_TRUST_PROXY", True),
+        "PROXY_HOPS": int_env("BRAINFUCK_PROXY_HOPS", 1),
+        "TRUSTED_IP_HEADER": os.environ.get("BRAINFUCK_TRUSTED_IP_HEADER", "CF-Connecting-IP"),
+        "LOGIN_MAX_ATTEMPTS": int_env("BRAINFUCK_LOGIN_MAX_ATTEMPTS", 8),
+        "LOGIN_WINDOW_SECONDS": int_env("BRAINFUCK_LOGIN_WINDOW_SECONDS", 300),
     }
 
 
@@ -145,6 +151,10 @@ def create_app(config_overrides=None):
         app.config.update(config_overrides)
     app.secret_key = app.config["SECRET_KEY"]
 
+    if app.config.get("TRUST_PROXY", True):
+        hops = app.config.get("PROXY_HOPS", 1)
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=hops, x_host=hops)
+
     configure_logging(app)
     init_db(app.config["DB_FILE"], app.config["SQLITE_TIMEOUT_SECONDS"])
     register_hooks(app)
@@ -178,9 +188,14 @@ def register_hooks(app):
                 response.status_code,
                 elapsed_ms,
             )
+        if request.endpoint not in {"static", "healthz"}:
+            # Authenticated todo content must never be cached by the browser,
+            # Cloudflare, or any shared proxy in front of the app.
+            response.headers.setdefault("Cache-Control", "no-store")
         if current_app.config.get("SECURITY_HEADERS_ENABLED", True):
             response.headers.setdefault("X-Content-Type-Options", "nosniff")
             response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+            response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
             response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
             response.headers.setdefault(
                 "Permissions-Policy",
@@ -219,6 +234,17 @@ def register_error_handlers(app):
             413,
         )
 
+    @app.errorhandler(429)
+    def too_many_requests(_error):
+        return (
+            render_template(
+                "error.html",
+                title="Prea multe incercari",
+                message="Ai facut prea multe cereri intr-un interval scurt. Reincearca mai tarziu.",
+            ),
+            429,
+        )
+
     @app.errorhandler(500)
     def internal_error(error):
         current_app.logger.exception("unhandled application error", exc_info=error)
@@ -248,14 +274,34 @@ def register_routes(app):
         error = None
         if request.method == "POST":
             validate_csrf()
+            ip = client_ip()
+            locked_for = login_lock_remaining(ip)
+            if locked_for:
+                current_app.logger.warning(
+                    "login_locked ip=%s retry_after=%s", ip, locked_for
+                )
+                return (
+                    render_template(
+                        "error.html",
+                        title="Prea multe incercari",
+                        message=(
+                            "Prea multe incercari de autentificare. "
+                            f"Reincearca in aproximativ {locked_for} secunde."
+                        ),
+                    ),
+                    429,
+                    {"Retry-After": str(locked_for)},
+                )
             password = request.form.get("password", "")
             if verify_login_with_bf(password):
+                clear_login_attempts(ip)
                 session.clear()
                 session.permanent = True
                 session["logged_in"] = True
                 csrf_token()
                 return redirect(url_for("index"))
-            current_app.logger.warning("failed_login remote_addr=%s", request.remote_addr)
+            record_failed_login(ip)
+            current_app.logger.warning("failed_login ip=%s", ip)
             error = "Parola incorecta! (Validat de Brainfuck)"
         return render_template("login.html", error=error)
 
@@ -310,6 +356,57 @@ def register_routes(app):
         return redirect(url_for("index"))
 
 
+def client_ip():
+    """Best-effort real client IP.
+
+    The app binds to localhost and is only reachable through Nginx, which in
+    turn only accepts Cloudflare origins, so the proxy-set headers are
+    trustworthy in production. ``CF-Connecting-IP`` carries the original
+    visitor address; we fall back to the left-most ``X-Forwarded-For`` entry and
+    finally to the socket peer.
+    """
+    if current_app.config.get("TRUST_PROXY", True):
+        header = current_app.config.get("TRUSTED_IP_HEADER", "CF-Connecting-IP")
+        forwarded = request.headers.get(header)
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        xff = request.headers.get("X-Forwarded-For")
+        if xff:
+            return xff.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
+
+def login_lock_remaining(ip):
+    """Seconds the IP must wait before another login attempt, or 0 if allowed."""
+    window = current_app.config["LOGIN_WINDOW_SECONDS"]
+    max_attempts = current_app.config["LOGIN_MAX_ATTEMPTS"]
+    cutoff = time.time() - window
+    with closing(get_db_connection()) as conn, conn:
+        conn.execute("DELETE FROM login_attempts WHERE created_at < ?", (cutoff,))
+        rows = conn.execute(
+            "SELECT created_at FROM login_attempts WHERE ip = ? ORDER BY created_at",
+            (ip,),
+        ).fetchall()
+    if len(rows) < max_attempts:
+        return 0
+    oldest = rows[0]["created_at"]
+    remaining = int(oldest + window - time.time()) + 1
+    return max(remaining, 1)
+
+
+def record_failed_login(ip):
+    with closing(get_db_connection()) as conn, conn:
+        conn.execute(
+            "INSERT INTO login_attempts (ip, created_at) VALUES (?, ?)",
+            (ip, time.time()),
+        )
+
+
+def clear_login_attempts(ip):
+    with closing(get_db_connection()) as conn, conn:
+        conn.execute("DELETE FROM login_attempts WHERE ip = ?", (ip,))
+
+
 def csrf_token():
     token = session.get(CSRF_SESSION_KEY)
     if not token:
@@ -340,6 +437,15 @@ def init_db(db_file, timeout=5):
             """CREATE TABLE IF NOT EXISTS todos
                    (id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT NOT NULL)"""
         )
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS login_attempts
+                   (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ip TEXT NOT NULL,
+                    created_at REAL NOT NULL)"""
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts (ip)"
+        )
 
 
 def get_db_connection():
@@ -364,9 +470,9 @@ def format_with_bf(task):
                 max_output=current_app.config["MAX_BF_OUTPUT"],
             )
         )
-    except Exception as exc:
+    except Exception:
         current_app.logger.exception("Brainfuck formatter failed")
-        return f'<li class="task-item">Error executing Brainfuck script: {escape(str(exc))}</li>'
+        return '<li class="task-item">Task indisponibil momentan.</li>'
 
 
 def verify_login_with_bf(password):
