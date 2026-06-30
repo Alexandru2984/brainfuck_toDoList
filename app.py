@@ -6,7 +6,8 @@ import socket
 import sqlite3
 import time
 from contextlib import closing
-from datetime import timedelta
+from datetime import datetime, timedelta
+from functools import wraps
 from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
@@ -15,6 +16,7 @@ from flask import (
     Flask,
     abort,
     current_app,
+    flash,
     g,
     jsonify,
     redirect,
@@ -258,6 +260,34 @@ def register_error_handlers(app):
         )
 
 
+def login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login"))
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
+def store_task(conn, task, todo_id=None):
+    """Validate length, escape, Brainfuck-transform, then insert or update."""
+    task = task.strip()
+    if not task:
+        return False
+    if len(task) > current_app.config["MAX_TASK_LENGTH"]:
+        abort(413)
+    encrypted_task = encrypt_with_bf(escape(task, quote=True))
+    if todo_id is None:
+        conn.execute(
+            "INSERT INTO todos (task, done, created_at) VALUES (?, 0, ?)",
+            (encrypted_task, time.time()),
+        )
+    else:
+        conn.execute("UPDATE todos SET task = ? WHERE id = ?", (encrypted_task, todo_id))
+    return True
+
+
 def register_routes(app):
     @app.route("/healthz")
     def healthz():
@@ -312,48 +342,89 @@ def register_routes(app):
         return redirect(url_for("login"))
 
     @app.route("/")
+    @login_required
     def index():
-        if not session.get("logged_in"):
-            return redirect(url_for("login"))
-
         with closing(get_db_connection()) as conn:
-            todos = conn.execute("SELECT * FROM todos ORDER BY id DESC").fetchall()
+            todos = conn.execute(
+                "SELECT id, task, done, created_at FROM todos ORDER BY done ASC, id DESC"
+            ).fetchall()
 
         formatted_todos = []
+        active_count = 0
         for todo in todos:
-            formatted_task = format_with_bf(todo["task"])
-            formatted_todos.append({"id": todo["id"], "html": formatted_task})
+            if not todo["done"]:
+                active_count += 1
+            formatted_todos.append(
+                {
+                    "id": todo["id"],
+                    "html": format_with_bf(todo["task"]),
+                    "done": bool(todo["done"]),
+                    "created_at": format_timestamp(todo["created_at"]),
+                }
+            )
 
         return render_template(
             "index.html",
             todos=formatted_todos,
+            total_count=len(formatted_todos),
+            active_count=active_count,
+            done_count=len(formatted_todos) - active_count,
             max_task_length=current_app.config["MAX_TASK_LENGTH"],
         )
 
     @app.route("/add", methods=["POST"])
+    @login_required
     def add():
-        if not session.get("logged_in"):
-            return redirect(url_for("login"))
         validate_csrf()
+        with closing(get_db_connection()) as conn, conn:
+            if store_task(conn, request.form.get("task", "")):
+                flash("Task adaugat.", "success")
+        return redirect(url_for("index"))
 
-        task = request.form.get("task")
-        if task:
-            if len(task) > current_app.config["MAX_TASK_LENGTH"]:
-                abort(413)
-            encrypted_task = encrypt_with_bf(escape(task, quote=True))
-            with closing(get_db_connection()) as conn, conn:
-                conn.execute("INSERT INTO todos (task) VALUES (?)", (encrypted_task,))
+    @app.route("/edit/<int:id>", methods=["POST"])
+    @login_required
+    def edit(id):
+        validate_csrf()
+        with closing(get_db_connection()) as conn, conn:
+            if store_task(conn, request.form.get("task", ""), todo_id=id):
+                flash("Task actualizat.", "success")
+        return redirect(url_for("index"))
+
+    @app.route("/toggle/<int:id>", methods=["POST"])
+    @login_required
+    def toggle(id):
+        validate_csrf()
+        with closing(get_db_connection()) as conn, conn:
+            conn.execute("UPDATE todos SET done = 1 - done WHERE id = ?", (id,))
         return redirect(url_for("index"))
 
     @app.route("/delete/<int:id>", methods=["POST"])
+    @login_required
     def delete(id):
-        if not session.get("logged_in"):
-            return redirect(url_for("login"))
         validate_csrf()
-
         with closing(get_db_connection()) as conn, conn:
             conn.execute("DELETE FROM todos WHERE id = ?", (id,))
+        flash("Task sters.", "success")
         return redirect(url_for("index"))
+
+    @app.route("/clear-completed", methods=["POST"])
+    @login_required
+    def clear_completed():
+        validate_csrf()
+        with closing(get_db_connection()) as conn, conn:
+            removed = conn.execute("DELETE FROM todos WHERE done = 1").rowcount
+        if removed:
+            flash(f"{removed} task-uri finalizate sterse.", "success")
+        return redirect(url_for("index"))
+
+
+def format_timestamp(value):
+    if not value:
+        return ""
+    try:
+        return datetime.fromtimestamp(value).strftime("%d %b %Y, %H:%M")
+    except (ValueError, OverflowError, OSError):
+        return ""
 
 
 def client_ip():
@@ -437,6 +508,12 @@ def init_db(db_file, timeout=5):
             """CREATE TABLE IF NOT EXISTS todos
                    (id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT NOT NULL)"""
         )
+        # Lightweight migrations for existing databases.
+        todo_columns = {row[1] for row in conn.execute("PRAGMA table_info(todos)")}
+        if "done" not in todo_columns:
+            conn.execute("ALTER TABLE todos ADD COLUMN done INTEGER NOT NULL DEFAULT 0")
+        if "created_at" not in todo_columns:
+            conn.execute("ALTER TABLE todos ADD COLUMN created_at REAL")
         conn.execute(
             """CREATE TABLE IF NOT EXISTS login_attempts
                    (id INTEGER PRIMARY KEY AUTOINCREMENT,

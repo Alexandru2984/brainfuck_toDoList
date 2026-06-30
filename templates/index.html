@@ -19,6 +19,16 @@
         </form>
     </header>
 
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-stack" role="status" aria-live="polite">
+                {% for category, message in messages %}
+                    <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
     <section class="compose panel">
         <form action="{{ url_for('add') }}" method="POST" class="task-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -26,11 +36,47 @@
             <button type="submit" class="primary-button">Adauga</button>
         </form>
     </section>
-    
+
+    <section class="statsbar" aria-label="Statistici">
+        <div class="stats">
+            <span class="stat"><strong>{{ total_count }}</strong> total</span>
+            <span class="stat"><strong>{{ active_count }}</strong> active</span>
+            <span class="stat"><strong>{{ done_count }}</strong> finalizate</span>
+        </div>
+        {% if done_count %}
+            <form action="{{ url_for('clear_completed') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="ghost-button">Sterge finalizate</button>
+            </form>
+        {% endif %}
+    </section>
+
     <section class="task-list" aria-label="Taskuri">
         {% for todo in todos %}
-            <div class="task-wrapper">
-                {{ todo.html | safe }}
+            <div class="task-wrapper{% if todo.done %} is-done{% endif %}">
+                <form action="{{ url_for('toggle', id=todo.id) }}" method="POST" class="toggle-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="toggle-btn" aria-pressed="{{ 'true' if todo.done else 'false' }}"
+                            aria-label="{{ 'Marcheaza ca activ' if todo.done else 'Marcheaza ca finalizat' }}">
+                        {%- if todo.done %}&#10003;{% endif -%}
+                    </button>
+                </form>
+
+                <div class="task-body">
+                    {{ todo.html | safe }}
+                    <div class="task-meta">
+                        {% if todo.created_at %}<span class="task-date">{{ todo.created_at }}</span>{% endif %}
+                        <details class="edit">
+                            <summary>Editeaza</summary>
+                            <form action="{{ url_for('edit', id=todo.id) }}" method="POST" class="edit-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="text" name="task" aria-label="Text nou" placeholder="Text nou..." required autocomplete="off" maxlength="{{ max_task_length }}">
+                                <button type="submit" class="primary-button">Salveaza</button>
+                            </form>
+                        </details>
+                    </div>
+                </div>
+
                 <form action="{{ url_for('delete', id=todo.id) }}" method="POST" class="delete-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="delete-btn" aria-label="Sterge task">&times;</button>
