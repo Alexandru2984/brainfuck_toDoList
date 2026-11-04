@@ -73,3 +73,11 @@ Implementate: 12 lecții, predicții calculate de VM, exerciții cu verificări 
 output și memorie, indicii, soluții BF, export și transfer în debugger.
 Progresul local conține numai ID-uri. Referințele tuturor lecțiilor sunt testate
 în Node; fluxul complet este verificat pe desktop și mobil.
+
+### Etapa 4
+
+Implementate: puzzle determinist pe zi UTC, arhivă pe dată, opt familii de
+probleme cu cazuri generate, recorduri locale separate pentru lungime/pași/celule,
+share fără input și fără autorun. Persistența reține maximum 365 de zile și numai
+scoruri. Soluțiile de referință au trecut 40 de zile generate; fluxul zilnic și
+partajarea sunt verificate în browser pe desktop și mobil.
