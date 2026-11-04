@@ -18,6 +18,10 @@
     <a href="/lab" class="brand"><span class="brand-symbol" aria-hidden="true">[+]</span><span>brainfuck<span class="brand-suffix">.lab</span></span></a>
     <nav class="header-nav" aria-label="Navigare principală">
         <a href="/lab">Laborator</a>
+        {% if 'academy' in studio_pages %}<a href="/academy">Lecții</a>{% endif %}
+        {% if 'challenges' in studio_pages %}<a href="/challenges">Provocări</a>{% endif %}
+        {% if 'library' in studio_pages %}<a href="/library">Colecție</a>{% endif %}
+        {% if 'graphics' in studio_pages %}<a href="/graphics">Experimente</a>{% endif %}
         <a href="{{ url_for('index') }}">Taskuri private</a>
         <button type="button" id="theme-toggle" class="icon-button" aria-label="Comută tema">☾</button>
         {% if session.get('logged_in') %}

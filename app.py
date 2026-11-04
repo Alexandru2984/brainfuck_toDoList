@@ -42,6 +42,38 @@ from generate_login_bf import generate_login_bf
 
 BASE_DIR = Path(__file__).resolve().parent
 CSRF_SESSION_KEY = "_csrf_token"
+PUBLIC_STUDIOS = {
+    "academy": (
+        "Lecții ghidate de Brainfuck",
+        "Învață Brainfuck în 12 lecții interactive: memorie, bucle, copiere, aritmetică și prelucrarea textului.",
+        "Învață",
+    ),
+    "challenges": (
+        "Provocarea zilei și code golf",
+        "Rezolvă un puzzle Brainfuck nou în fiecare zi UTC și îmbunătățește recordurile locale de lungime, pași și memorie.",
+        "Provocări",
+    ),
+    "library": (
+        "Algoritmi scriși în Brainfuck",
+        "Explorează programe Brainfuck cu surse descărcabile, hărți de memorie, explicații și cazuri de test.",
+        "Colecție",
+    ),
+    "graphics": (
+        "Pixeli și animații în Brainfuck",
+        "Programele Brainfuck emit octeți. Urmărește cum devin desene și animații, direct în browser.",
+        "Experimente",
+    ),
+    "optimize": (
+        "Optimizare și comparație Brainfuck",
+        "Explorează transformări explicate și compară outputul, memoria și costul a două programe Brainfuck.",
+        "Experimente",
+    ),
+    "self": (
+        "Brainfuck în Brainfuck",
+        "Un interpretor Brainfuck real, scris numai cu cele opt instrucțiuni, cu sursa și costul execuției la vedere.",
+        "Experimente",
+    ),
+}
 
 
 def required_env(*names):
@@ -228,7 +260,7 @@ def register_hooks(app):
                 "no-store, no-transform" if response.mimetype == "text/html" else "no-store"
             )
             response.headers.setdefault("Cache-Control", cache_policy)
-        if request.endpoint not in {"static", "lab", "robots", "sitemap"}:
+        if request.endpoint not in {"static", "lab", "robots", "sitemap", *PUBLIC_STUDIOS}:
             response.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
         if current_app.config.get("SECURITY_HEADERS_ENABLED", True):
             response.headers.setdefault("X-Content-Type-Options", "nosniff")
@@ -457,6 +489,24 @@ def task_metadata():
 
 
 def register_routes(app):
+    def studio_page(name):
+        title, description, group = PUBLIC_STUDIOS[name]
+        return render_template(
+            name + ".html",
+            page_title=title,
+            page_description=description,
+            page_group=group,
+            page_path="/" + name,
+        )
+
+    # Public educational pages contain no task queries or submitted program execution.
+    available = {
+        name for name in PUBLIC_STUDIOS if (BASE_DIR / "templates" / (name + ".html")).is_file()
+    }
+    app.jinja_env.globals["studio_pages"] = available
+    for name in available:
+        app.add_url_rule("/" + name, name, lambda name=name: studio_page(name))
+
     @app.route("/robots.txt")
     def robots():
         return Response(

@@ -1,0 +1,14 @@
+{% extends 'public.html' %}
+{% block studio_content %}
+<p class="studio-progress" id="lesson-progress">12 lecții: de la prima celulă la prelucrarea textului.</p>
+<div class="studio-grid"><nav id="lesson-nav" class="studio-nav" aria-label="Lecții Brainfuck"></nav><div>
+<section class="panel studio-panel"><p class="eyebrow">Înțelege</p><h2 id="lesson-title">Celule, pointer și bucle</h2><div id="lesson-copy" class="lesson-copy"><p>Parcursul include valori, pointer, overflow, input/output, bucle, copiere, aritmetică și texte.</p></div>
+<h3>Prezice memoria</h3><p id="prediction-question">Ce valoare rămâne în celula indicată?</p><pre id="prediction-code" class="source-preview"></pre><div class="prediction-form"><label class="sr-only" for="prediction-answer">Valoare între 0 și 255</label><input id="prediction-answer" type="number" min="0" max="255" placeholder="0–255"><button id="prediction-check" class="ghost-button" type="button">Verifică predicția</button></div><p id="prediction-status" class="studio-status" role="status"></p></section>
+<section class="panel studio-panel"><p class="eyebrow">Construiește în Brainfuck</p><label for="lesson-code">Soluția ta</label><textarea id="lesson-code" class="studio-code" maxlength="20000" spellcheck="false" autocapitalize="off"></textarea>
+<div class="studio-actions"><button id="lesson-check" class="primary-button" type="button">Verifică exercițiul</button><button id="lesson-reset" class="ghost-button" type="button">Reia exercițiul</button></div><p id="lesson-status" class="studio-status" role="status"></p><div id="lesson-results" role="status"></div>
+<details><summary>Un indiciu</summary><p id="lesson-hint"></p></details><details><summary>Vezi o soluție și descarcă sursa</summary><pre id="lesson-solution" class="source-preview"></pre><button id="lesson-solution-load" class="ghost-button" type="button">Încarcă soluția în editor</button><button id="lesson-download" class="ghost-button" type="button">Descarcă .bf</button></details>
+<div class="studio-actions"><a id="lesson-lab" class="button-link ghost-button" href="/lab">Deschide codul în debugger →</a><button id="lesson-next" class="ghost-button" type="button">Lecția următoare →</button></div>
+<p class="studio-note">Verificările rulează local. Se păstrează numai lecțiile rezolvate, nu codul sau inputurile.</p><button id="lesson-clear-progress" class="ghost-button" type="button">Resetează progresul local</button></section>
+</div></div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='academy.mjs') }}"></script>{% endblock %}

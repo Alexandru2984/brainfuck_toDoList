@@ -66,3 +66,10 @@ terminare, explicații și celule modificate, profil de instrucțiuni/bucle/celu
 Verificare: 26 teste Node și două verificări browser dedicate (desktop/mobil).
 Inputul sau codul editat invalidează starea veche. Profilarea nu dublează memoria
 benzii la fiecare pas; totalurile buclelor imbricate sunt marcate ca suprapuse.
+
+### Etapa 3
+
+Implementate: 12 lecții, predicții calculate de VM, exerciții cu verificări de
+output și memorie, indicii, soluții BF, export și transfer în debugger.
+Progresul local conține numai ID-uri. Referințele tuturor lecțiilor sunt testate
+în Node; fluxul complet este verificat pe desktop și mobil.

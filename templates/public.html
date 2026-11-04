@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}{{ page_title }} · Brainfuck Lab{% endblock %}
+{% block metadata %}
+<meta name="description" content="{{ page_description }}">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://brainfuck.micutu.com{{ page_path }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Brainfuck Lab">
+<meta property="og:title" content="{{ page_title }}">
+<meta property="og:description" content="{{ page_description }}">
+<meta property="og:url" content="https://brainfuck.micutu.com{{ page_path }}">
+<meta property="og:image" content="https://brainfuck.micutu.com/static/og-card.png">
+<meta name="twitter:card" content="summary_large_image">
+{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='studio.css') }}">{% endblock %}
+{% block content %}
+<div class="studio-intro"><p class="eyebrow">Brainfuck / {{ page_group }}</p><h1>{{ page_title }}</h1><p class="helper-text">{{ page_description }}</p></div>
+{% if page_group == 'Experimente' %}<nav class="studio-tabs" aria-label="Experimente">{% if 'graphics' in studio_pages %}<a href="/graphics">Pixeli și animații</a>{% endif %}{% if 'optimize' in studio_pages %}<a href="/optimize">Optimizare și comparație</a>{% endif %}{% if 'self' in studio_pages %}<a href="/self">Brainfuck în Brainfuck</a>{% endif %}</nav>{% endif %}
+<noscript><p class="error-message">Exercițiile interactive au nevoie de JavaScript. Sursele Brainfuck rămân disponibile în biblioteca de programe.</p></noscript>
+{% block studio_content %}{% endblock %}
+{% endblock %}

@@ -1,0 +1,356 @@
+.studio-intro {
+  max-width: 800px;
+  margin: 46px 0 30px;
+}
+.studio-intro h1 {
+  font-size: clamp(32px, 5vw, 52px);
+}
+.studio-intro p {
+  line-height: 1.85;
+}
+.studio-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+.studio-tabs a {
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 12px;
+  text-decoration: none;
+}
+.studio-grid {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.studio-grid > * {
+  min-width: 0;
+}
+.studio-nav {
+  display: grid;
+  gap: 7px;
+}
+.studio-nav button {
+  justify-content: flex-start;
+  text-align: left;
+  white-space: normal;
+  background: var(--card);
+  color: var(--muted);
+  border-color: var(--line);
+  font-size: 12px;
+}
+.studio-nav button[aria-current="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.studio-nav small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+}
+.studio-code {
+  width: 100%;
+  min-height: 200px;
+  font: 14px/1.8 var(--mono);
+  color: var(--accent);
+  resize: vertical;
+  tab-size: 4;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.source-preview {
+  background: var(--bg);
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: 12px/1.8 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 300px;
+  overflow: auto;
+}
+.studio-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.studio-actions > a {
+  font-size: 12px;
+}
+.studio-panel {
+  margin-bottom: 20px;
+}
+.studio-panel h2 {
+  font-size: 24px;
+}
+.studio-panel h3 {
+  font-size: 16px;
+  margin-top: 20px;
+}
+.studio-panel p,
+.studio-panel li {
+  font-size: 13px;
+  line-height: 1.85;
+}
+.studio-panel label {
+  font-size: 12px;
+  color: var(--muted);
+  display: block;
+  margin: 12px 0 8px;
+}
+.studio-status {
+  font: 12px/1.8 var(--mono);
+  color: var(--accent);
+  overflow-wrap: anywhere;
+  min-height: 24px;
+  margin: 14px 0;
+}
+.has-error {
+  color: var(--danger) !important;
+}
+.studio-progress {
+  font: 11px var(--mono);
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+.prediction-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.prediction-form input {
+  width: 120px;
+}
+.studio-result {
+  font: 13px/1.8 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 18px;
+  border-radius: 8px;
+  min-height: 70px;
+  max-height: 300px;
+  overflow: auto;
+}
+.studio-panel details {
+  margin: 16px 0;
+}
+.studio-panel details summary {
+  font-size: 12px;
+}
+.studio-panel .test-result {
+  font: 11px/1.8 var(--mono);
+  border-top: 1px solid var(--line);
+  padding: 10px 0;
+  overflow-wrap: anywhere;
+}
+.pass {
+  color: var(--accent);
+}
+.fail {
+  color: var(--danger);
+}
+.record-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.record-card {
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.record-card strong {
+  display: block;
+  font: 24px var(--mono);
+  margin-bottom: 7px;
+}
+.record-card span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.library-card {
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+}
+.library-card h2 {
+  font-size: 19px;
+}
+.library-card p {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.85;
+}
+.library-card button {
+  font-size: 12px;
+}
+.memory-map {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.memory-map span {
+  font: 10px/1.8 var(--mono);
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+}
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.compare-grid > * {
+  min-width: 0;
+}
+.studio-table-wrap {
+  overflow: auto;
+  margin: 20px 0;
+}
+.studio-table {
+  border-collapse: collapse;
+  width: 100%;
+  font: 11px/1.8 var(--mono);
+}
+.studio-table th,
+.studio-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.studio-table th {
+  color: var(--muted);
+}
+.studio-selects {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.studio-selects label {
+  flex: 1;
+  min-width: 100px;
+}
+.studio-selects input,
+.studio-selects select {
+  width: 100%;
+}
+.canvas-panel {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  padding: 24px;
+  min-width: 0;
+}
+.pixel-canvas {
+  width: min(100%, 512px);
+  height: auto;
+  image-rendering: pixelated;
+  display: block;
+  margin: 20px auto;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  aspect-ratio: 1;
+}
+.studio-note {
+  font: 11px/1.8 var(--mono);
+  color: var(--muted);
+}
+.lesson-copy p {
+  max-width: 720px;
+}
+.prediction-note {
+  font: 11px var(--mono);
+  color: var(--muted);
+}
+.studio-link-list {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.header-nav {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.page-heading {
+  scroll-margin-top: 20px;
+}
+@media (max-width: 950px) {
+  .library-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .studio-grid {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+}
+@media (max-width: 700px) {
+  .studio-grid,
+  .compare-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .studio-nav {
+    display: flex;
+    overflow: auto;
+    padding-bottom: 12px;
+  }
+  .studio-nav button {
+    flex-shrink: 0;
+    max-width: 180px;
+    min-width: 130px;
+  }
+  .studio-intro {
+    margin-top: 30px;
+  }
+  .library-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .studio-code {
+    font-size: 16px;
+    min-height: 180px;
+  }
+  .record-grid {
+    gap: 8px;
+  }
+  .record-card {
+    padding: 12px;
+  }
+  .record-card strong {
+    font-size: 20px;
+  }
+  .record-card span {
+    font-size: 10px;
+  }
+  .studio-tabs a {
+    font-size: 11px;
+    padding: 8px 10px;
+  }
+  .header-nav {
+    justify-content: space-between;
+    gap: 9px;
+  }
+  .header-nav > a {
+    font-size: 11px;
+  }
+  .canvas-panel {
+    padding: 16px;
+  }
+}
