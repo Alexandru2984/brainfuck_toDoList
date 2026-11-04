@@ -58,3 +58,11 @@ OPERATIONS.md rămâne aplicabil; nu se inventează estimări financiare sau SLA
 
 Implementarea începe de la commitul `bfba1c4`. Rezultatele și limitele efective
 vor fi completate după testarea fiecărei etape.
+
+### Etapele 1–2
+
+Implementate: istoric circular de 20.000 de diferențe, undo/seek inclusiv după
+terminare, explicații și celule modificate, profil de instrucțiuni/bucle/celule.
+Verificare: 26 teste Node și două verificări browser dedicate (desktop/mobil).
+Inputul sau codul editat invalidează starea veche. Profilarea nu dublează memoria
+benzii la fiecare pas; totalurile buclelor imbricate sunt marcate ca suprapuse.

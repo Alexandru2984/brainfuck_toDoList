@@ -12,6 +12,7 @@ function report(state, error = "") {
     state,
     error,
     ...(vm ? vm.snapshot() : {}),
+    ...(vm && !running ? { profile: vm.profileSnapshot() } : {}),
     elapsed: elapsed + (running ? performance.now() - started : 0),
   });
 }
@@ -61,6 +62,8 @@ self.onmessage = ({ data }) => {
           const machine = new BrainfuckVM(data.code, test.input, {
             steps: 200000,
             output: 4096,
+            history: 0,
+            profiling: true,
           });
           const actual = machine.run(),
             expected = new TextEncoder().encode(test.expected);
@@ -72,6 +75,8 @@ self.onmessage = ({ data }) => {
               actual.length === expected.length &&
               actual.every((b, i) => b === expected[i]),
             steps: machine.steps,
+            cells: machine.distinctCells,
+            instructions: machine.code.length,
           };
         } catch (error) {
           return {
@@ -89,6 +94,7 @@ self.onmessage = ({ data }) => {
       running = false;
       epoch++;
       elapsed = 0;
+      vm = null;
       vm = new BrainfuckVM(data.code, data.input);
       lastBreakpoint = null;
       breakpoints = new Set(data.breakpoints || []);
@@ -102,6 +108,14 @@ self.onmessage = ({ data }) => {
     } else if (data.type === "run") run();
     else if (data.type === "step" && vm && !running) {
       vm.step();
+      report(vm.done ? "done" : "paused");
+    } else if (data.type === "back" && vm && !running) {
+      vm.back();
+      lastBreakpoint = null;
+      report("paused");
+    } else if (data.type === "seek" && vm && !running) {
+      vm.seek(data.step);
+      lastBreakpoint = null;
       report(vm.done ? "done" : "paused");
     } else if (data.type === "pause") pause();
     else if (data.type === "breakpoints") breakpoints = new Set(data.values);

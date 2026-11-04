@@ -5,6 +5,7 @@ export const LIMITS = Object.freeze({
   steps: 2000000,
   output: 65536,
   cells: 30000,
+  history: 20000,
 });
 export class BrainfuckVM {
   constructor(source, input = "", limits = {}) {
@@ -44,6 +45,19 @@ export class BrainfuckVM {
     this.inputPtr = 0;
     this.output = [];
     this.highWater = 0;
+    this.history = new Array(this.limits.history);
+    this.historyHead = 0;
+    this.historyCount = 0;
+    this.furthestStep = 0;
+    this.lastChange = null;
+    this.profiling = limits.profiling !== false;
+    this.instructionVisits = new Uint32Array(this.code.length);
+    this.cellVisits = new Uint32Array(this.tape.length);
+    this.cellVisits[0] = 1;
+    this.distinctCells = 1;
+    this.operationCounts = Object.fromEntries(
+      [..."><+-.,[]"].map((op) => [op, 0]),
+    );
   }
   get done() {
     return this.pc >= this.code.length;
@@ -54,7 +68,22 @@ export class BrainfuckVM {
       throw new Error(
         "Limita de 2.000.000 de pași a fost atinsă. Verifică buclele.",
       );
-    switch (this.code[this.pc]) {
+    const op = this.code[this.pc];
+    if (op === "." && this.output.length >= this.limits.output)
+      throw new Error("Limita de output: 65.536 de octeți.");
+    const oldPc = this.pc;
+    const delta = this.limits.history
+      ? {
+          pc: this.pc,
+          ptr: this.ptr,
+          value: this.tape[this.ptr],
+          inputPtr: this.inputPtr,
+          outputLength: this.output.length,
+          highWater: this.highWater,
+          op,
+        }
+      : null;
+    switch (op) {
       case ">":
         this.ptr = (this.ptr + 1) % this.tape.length;
         break;
@@ -68,8 +97,6 @@ export class BrainfuckVM {
         this.tape[this.ptr]--;
         break;
       case ".":
-        if (this.output.length >= this.limits.output)
-          throw new Error("Limita de output: 65.536 de octeți.");
         this.output.push(this.tape[this.ptr]);
         break;
       case ",":
@@ -82,10 +109,90 @@ export class BrainfuckVM {
         if (this.tape[this.ptr]) this.pc = this.jumps.get(this.pc);
         break;
     }
+    if (this.profiling) {
+      this.instructionVisits[oldPc]++;
+      this.operationCounts[op]++;
+      if (this.cellVisits[this.ptr]++ === 0) this.distinctCells++;
+    }
+    if (delta) {
+      delta.nextPtr = this.ptr;
+      delta.nextValue = this.tape[delta.ptr];
+      this.history[this.historyHead] = delta;
+      this.historyHead = (this.historyHead + 1) % this.history.length;
+      this.historyCount = Math.min(this.historyCount + 1, this.history.length);
+      this.lastChange = delta;
+    }
     this.highWater = Math.max(this.highWater, this.ptr);
     this.pc++;
     this.steps++;
+    this.furthestStep = Math.max(this.furthestStep, this.steps);
     return true;
+  }
+  back() {
+    if (!this.historyCount) return false;
+    this.historyHead =
+      (this.historyHead + this.history.length - 1) % this.history.length;
+    const delta = this.history[this.historyHead];
+    this.history[this.historyHead] = undefined;
+    this.historyCount--;
+    if (this.profiling) {
+      this.instructionVisits[delta.pc]--;
+      this.operationCounts[delta.op]--;
+      if (--this.cellVisits[this.ptr] === 0) this.distinctCells--;
+    }
+    this.tape[delta.ptr] = delta.value;
+    this.ptr = delta.ptr;
+    this.pc = delta.pc;
+    this.inputPtr = delta.inputPtr;
+    this.output.length = delta.outputLength;
+    this.highWater = delta.highWater;
+    this.steps--;
+    this.lastChange = { ...delta, undo: true };
+    return true;
+  }
+  seek(target) {
+    if (
+      !Number.isInteger(target) ||
+      target < this.steps - this.historyCount ||
+      target > this.furthestStep
+    )
+      throw new RangeError("Pasul nu mai este în istoricul disponibil.");
+    while (this.steps > target) this.back();
+    while (this.steps < target) this.step();
+  }
+  profileSnapshot() {
+    const instructions = Array.from(this.instructionVisits, (count, index) => ({
+      index,
+      count,
+      op: this.code[index],
+      sourceIndex: this.positions[index],
+    }))
+      .filter((row) => row.count)
+      .sort((a, b) => b.count - a.count || a.index - b.index)
+      .slice(0, 10);
+    const cells = Array.from(this.cellVisits, (count, index) => ({
+      index,
+      count,
+      value: this.tape[index],
+    }))
+      .filter((row) => row.count)
+      .sort((a, b) => b.count - a.count || a.index - b.index)
+      .slice(0, 16);
+    const prefix = new Float64Array(this.code.length + 1);
+    for (let i = 0; i < this.code.length; i++)
+      prefix[i + 1] = prefix[i] + this.instructionVisits[i];
+    const loops = [];
+    for (const [start, end] of this.jumps)
+      if (start < end && prefix[end + 1] > prefix[start])
+        loops.push({ start, end, steps: prefix[end + 1] - prefix[start] });
+    loops.sort((a, b) => b.steps - a.steps || a.start - b.start);
+    return {
+      instructions,
+      cells,
+      loops: loops.slice(0, 8),
+      operations: this.operationCounts,
+      distinctCells: this.distinctCells,
+    };
   }
   snapshot() {
     const start = Math.max(0, Math.min(this.ptr - 7, this.tape.length - 16));
@@ -100,6 +207,11 @@ export class BrainfuckVM {
       done: this.done,
       cells: Array.from(this.tape.slice(start, start + 16)),
       start,
+      historyFloor: this.steps - this.historyCount,
+      historyCount: this.historyCount,
+      furthestStep: this.furthestStep,
+      distinctCells: this.distinctCells,
+      change: this.lastChange,
     };
   }
   run() {

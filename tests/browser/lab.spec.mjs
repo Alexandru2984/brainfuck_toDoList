@@ -174,3 +174,28 @@ test("private tasks roundtrip Unicode, metadata, editing and completion", async 
   await page.goto("/lab");
   await expect(page.locator("body")).not.toContainText(title);
 });
+test("reversible debugger restores output and timeline while profiling actual BF steps", async ({
+  page,
+}) => {
+  await page.goto("/lab");
+  await page.fill("#code", "+++..");
+  await run(page);
+  await expect(page.locator("#metric-steps")).toHaveText("5");
+  await expect(page.locator("#back")).toBeEnabled();
+  await page.click("#back");
+  await expect(page.locator("#metric-steps")).toHaveText("4");
+  await page.click("#back");
+  await expect(page.locator("#metric-steps")).toHaveText("3");
+  await expect(page.locator("#output")).toContainText("niciun octet");
+  await page.locator("#timeline").evaluate((element) => {
+    element.value = "5";
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await expect(page.locator("#metric-steps")).toHaveText("5");
+  await page.locator(".profiler summary").click();
+  await expect(page.locator("#profile-summary")).toContainText("5 pași");
+  await expect(page.locator("#profile-instructions li")).toHaveCount(5);
+  await page.fill("#stdin", "changed");
+  await expect(page.locator("#back")).toBeDisabled();
+  await expect(page.locator("#metric-steps")).toHaveText("0");
+});

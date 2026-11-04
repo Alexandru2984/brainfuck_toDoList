@@ -1,3 +1,4 @@
+import { renderDebug, resetDebug } from "./lab-debug.mjs";
 import { examples, challenges } from "./catalog.mjs";
 import { LIMITS } from "./bf-vm.mjs";
 const $ = (id) => document.getElementById(id);
@@ -43,6 +44,10 @@ function setRunning(value) {
   editor.readOnly = value;
   input.readOnly = value;
   $("speed").disabled = value;
+  if ($("back")) {
+    $("back").disabled = value || !worker || !snapshot?.historyCount;
+    $("timeline").disabled = value || !worker || !snapshot?.furthestStep;
+  }
   clearTimeout(watchdog);
   if (value)
     watchdog = setTimeout(() => {
@@ -70,7 +75,7 @@ function newWorker() {
       error: data.error || "Execuția a fost oprită.",
     };
     announce(labels[data.state] || "Pregătit.", data.state === "error");
-    if (data.state === "error") loaded = "";
+    if (data.state === "error" && !data.cells) loaded = "";
     if (data.cells) renderSnapshot(data);
   };
   worker.onerror = () => {
@@ -83,6 +88,7 @@ function newWorker() {
 }
 function stopWorker() {
   if (worker) worker.terminate();
+  worker = null;
   loaded = "";
   setRunning(false);
 }
@@ -125,6 +131,7 @@ function reset() {
   ])
     $(id).textContent = "0";
   $("trace").replaceChildren();
+  resetDebug();
   announce("Resetat. Banda de memorie este goală.");
 }
 function renderSnapshot(data) {
@@ -136,7 +143,13 @@ function renderSnapshot(data) {
   data.cells.forEach((value, i) => {
     const cell = document.createElement("div");
     cell.className =
-      "memory-cell" + (data.start + i === data.ptr ? " current" : "");
+      "memory-cell" +
+      (data.start + i === data.ptr ? " current" : "") +
+      (data.change &&
+      data.change.ptr === data.start + i &&
+      data.change.value !== data.change.nextValue
+        ? " changed"
+        : "");
     const index = document.createElement("span"),
       number = document.createElement("strong"),
       char = document.createElement("small");
@@ -169,10 +182,12 @@ function renderSnapshot(data) {
   }
   $("trace").replaceChildren(trace);
   $("pc-label").textContent = `${data.pc} / ${data.instructions}`;
+  renderDebug(data, running);
   if (!running && data.sourceIndex >= 0)
     editor.setSelectionRange(data.sourceIndex, data.sourceIndex + 1);
 }
 function codeChanged() {
+  if (snapshot || worker) reset();
   const ops = editor.value.match(/[><+\-.,\[\]]/g) || [];
   $("instruction-count").textContent = `${ops.length} instrucțiuni`;
   $("source-size").textContent =
@@ -399,6 +414,7 @@ $("pause").addEventListener("click", () =>
 $("reset").addEventListener("click", reset);
 editor.addEventListener("input", codeChanged);
 input.addEventListener("input", () => {
+  if (snapshot || worker) reset();
   loaded = "";
 });
 editor.addEventListener("scroll", () => {
@@ -515,3 +531,13 @@ codeChanged();
 updateProgress();
 selectChallenge();
 showBreakpoints();
+
+if ($("back")) {
+  $("back").addEventListener("click", () => {
+    if (!running) worker?.postMessage({ type: "back" });
+  });
+  $("timeline").addEventListener("change", () => {
+    if (!running)
+      worker?.postMessage({ type: "seek", step: Number($("timeline").value) });
+  });
+}
