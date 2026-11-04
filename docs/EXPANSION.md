@@ -89,3 +89,11 @@ Implementate: colecție de 18 programe, opt algoritmi suplimentari, fișe cu dom
 pentru surse mari. Generatoarele sunt numai build-time; algoritmii executați sunt
 în fișierele .bf. Testele acoperă complet domeniile aritmetice cu o cifră și
 caracterele ASCII imprimabile pentru ROT13, plus UTF-8 și fluxul browser.
+
+### Etapa 6
+
+Implementate: cinci programe BF pentru grafică, preview Canvas din octeți,
+1–32 × 1–32 pixeli și 1–8 cadre, redare explicită, controale manuale, palete,
+export PNG și share fără input. Dimensiunile se validează înainte de alocare.
+Testele verifică fiecare pixel și exportul real, iar reduced motion dezactivează
+redarea automată a cadrelor, păstrând navigarea manuală.

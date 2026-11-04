@@ -268,7 +268,6 @@
   margin: 20px auto;
   background: var(--bg);
   border: 1px solid var(--line);
-  aspect-ratio: 1;
 }
 .studio-note {
   font: 11px/1.8 var(--mono);
