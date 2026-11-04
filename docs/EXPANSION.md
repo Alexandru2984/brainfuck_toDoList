@@ -105,3 +105,13 @@ curățări redundante și bucle inițiale pe zero, cu jurnal explicativ. Compar
 rulează maximum opt inputuri și verifică întreaga bandă finală, pointerul,
 outputul și consumul de input. Profiluri și costuri sunt afișate separat.
 Testele acoperă păstrarea stării, diferențe reale și limite neconcludente.
+
+### Etapa 8
+
+Implementate: interpretor BF în 19.769 de instrucțiuni BF, protocol cod!input,
+16 celule virtuale, maximum 31 de instrucțiuni interioare și 128 de octeți input.
+Parserul, dispatch-ul, accesul indexat și potrivirea buclelor sunt în .bf; sursa
+este vizibilă și descărcabilă. Referința nu înlocuiește rezultatul BF.
+12 teste Node verifică outputul, memoria și pointerul; browserul verifică și
+bugetul epuizat și respingerea programelor prea mari. Demonstrația nu promite că
+orice program interior de 31 de instrucțiuni se termină în bugetul exterior.
