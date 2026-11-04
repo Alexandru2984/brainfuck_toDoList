@@ -8,6 +8,7 @@ class PublicLabTests(BaseAppTest):
         self.assertIn('property="og:image"', lab)
         robots = self.client.get("/robots.txt")
         self.assertEqual(robots.status_code, 200)
+        self.assertEqual(robots.headers["Cache-Control"], "no-store")
         self.assertIn(
             "Sitemap: https://brainfuck.micutu.com/sitemap.xml", robots.get_data(as_text=True)
         )

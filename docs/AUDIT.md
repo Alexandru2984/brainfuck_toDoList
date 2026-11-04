@@ -73,3 +73,60 @@ Verdict inițial: **remedieri înainte de publicarea funcțiilor noi**.
 - [Flask: limitele de încredere ProxyFix](https://flask.palletsprojects.com/en/stable/deploying/proxy_fix/)
 - [Cryptography: Fernet, InvalidToken și rotația cheilor](https://cryptography.io/en/latest/fernet/)
 - [OWASP: CSV injection](https://wstg.owasp.org/latest/4-Web_Application_Security_Testing/07-Injection/21-CSV_Injection/)
+
+## Rezultatul remedierilor și verificării live
+
+S01, S02 și S04–S12 au remedieri în cod/configurație și verificări de regresie.
+Pentru S03, parola live a fost comparată în memorie cu cele două versiuni
+recuperabile ale verificatorului istoric: nu este reutilizată. Istoricul vechi
+rămâne în repository; nu a fost rescris sau împins pe GitHub. Fișierele pregătite
+pentru commit nu conțin valorile secrete live.
+
+Auditul dependențelor a identificat un advisory pentru `cryptography==49.0.0`:
+[CVE-2026-69247 / GHSA-g6cj-pr64-35w5](https://github.com/pyca/cryptography/security/advisories/GHSA-g6cj-pr64-35w5).
+Acesta privește decriptarea PKCS#7, care nu este expusă de această aplicație;
+versiunea a fost totuși actualizată la 50.0.0. Rescanarea Python și npm nu a găsit
+vulnerabilități cunoscute în dependențele verificate. Nu reprezintă o garanție
+privind vulnerabilități viitoare. Bandit nu mai raportează constatări; sortările
+SQL folosesc interogări complete dintr-un set fix, fără concatenarea cererii.
+
+Verificări executate:
+
+- 56 teste Python pe runtime 3.14, inclusiv bypass/NUL/overflow, key rotation,
+  ciphertext alterat/cheie greșită fără rescriere, CSRF Unicode, replay de cookie,
+  autentificare expirată, spoofing de IP, buget concurent de login și limite.
+- 22 teste Node pentru mașina de octeți, exemple și soluțiile de referință;
+  12 teste Playwright pe desktop și mobil. Layout verificat între 320 și 1440 px,
+  inclusiv poziția efectivă a controalelor, nu doar absența scrollului orizontal.
+- Copie SQLite verificată cu cheile reale și noul cod: integrity_check ok.
+  Backup consistent imediat înainte de deploy; zero taskuri la acel moment.
+- `nginx -t` valid; restart numai pentru `brainfuck-canary`, reload Nginx.
+  `cryptography` actualizat și în virtualenvul live; pip check fără conflicte.
+- Domeniul public: healthz 200, lab 200, tasks anonime → login, robots propriu și
+  sitemap corect, worker JavaScript și imagine socială disponibile.
+- Browser live prin Cloudflare: programul Hello World rulează, controale mobile
+  vizibile, fără erori JS/CSP în consolă. Login și logout reale funcționează;
+  cookie-ul copiat înainte de logout este respins după logout. Nicio scriere de
+  taskuri în aceste verificări.
+
+La testarea live s-au observat injectările automate Cloudflare, blocate inițial
+de CSP. HTML transmite acum `no-store, no-transform`, fără relaxarea CSP;
+[Cloudflare documentează această directivă](https://developers.cloudflare.com/web-analytics/faq/).
+Astfel nu se injectează analytics sau JavaScript Detections în editor. Regulile
+WAF nu au fost modificate; robots rămâne separat pentru politica managed
+existentă. Antetele duplicate app/Nginx au fost normalizate la o singură politică.
+
+## Limite și lucru rămas în afara livrării
+
+- Un singur workspace/parolă, fără conturi individuale, MFA sau roluri.
+- Textul taskurilor este criptat; metadatele și etichetele nu sunt criptate.
+- Snapshoturi locale și runbook există; backupul off-host automat și livrarea
+  alertelor către operator nu sunt configurate. MTTD nu este măsurat.
+- Istoricul vechi trebuie tratat în continuare ca public și sensibil; eliminarea
+  lui ar necesita o operațiune coordonată pe clone/forkuri.
+- CI este configurat pentru Python 3.13/3.14, dar în această sesiune s-a executat
+  local 3.14. Workflow-ul remote va rula după push; nu s-a făcut push.
+- Verificarea browserului acoperă Chromium; Safari/Firefox nu au fost testate.
+
+Verdict final: **livrare funcțională verificată**, cu limitele operaționale de mai
+sus declarate. Nu se pretinde certificare sau audit independent complet al VPS-ului.

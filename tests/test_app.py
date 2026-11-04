@@ -205,7 +205,7 @@ class ThrottleTests(BaseAppTest):
 class HeaderTests(BaseAppTest):
     def test_dynamic_pages_are_not_cached(self):
         response = self.client.get("/login")
-        self.assertEqual(response.headers.get("Cache-Control"), "no-store")
+        self.assertEqual(response.headers.get("Cache-Control"), "no-store, no-transform")
         self.assertEqual(response.headers.get("Cross-Origin-Opener-Policy"), "same-origin")
 
     def test_static_assets_are_cacheable(self):

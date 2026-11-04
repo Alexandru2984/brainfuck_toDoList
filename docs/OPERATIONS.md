@@ -32,6 +32,17 @@ state; replay newer user changes deliberately to avoid data loss.
 
 ## Detection and incident response
 
+HTML uses `Cache-Control: no-store, no-transform`, which prevents Cloudflare
+Web Analytics and JavaScript Detections from injecting code into documents.
+This preserves the editor's strict CSP and avoids third-party scripts accessing
+code/input fields. Zone WAF rules were not changed. Robots and sitemap are
+served without no-transform, preserving the existing managed crawler policy.
+Nginx hides upstream copies of the security headers and emits a single policy;
+the app still protects direct loopback responses.
+
+Provider references: [Cloudflare Web Analytics injection](https://developers.cloudflare.com/web-analytics/faq/)
+and [JavaScript Detections](https://developers.cloudflare.com/cloudflare-challenges/challenge-types/javascript-detections/).
+
 - Probe `https://brainfuck.micutu.com/healthz` externally. Alert after two
   consecutive failures, and on certificate expiry. An alert destination and
   on-call owner must be configured by the operator.

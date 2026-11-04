@@ -42,3 +42,10 @@ push sau rescriere de istoric în această livrare.
   erori; necesită alegerea destinației de backup și canalului operatorului.
 
 Acestea sunt propuneri viitoare, nu funcții declarate ca implementate.
+
+## Livrarea din 4 noiembrie 2026
+
+Etapele 1–5 sunt implementate, comise și publicate. Verificări locale: 56 Python,
+22 VM, 12 browser; verificări live: laborator, worker, mobile, autentificare și
+revocare după logout. SEO/CI sunt în repository; rularea GitHub Actions necesită
+push, care nu a fost făcut. Propunerile din „Următoarele iterații” rămân backlog.

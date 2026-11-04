@@ -66,6 +66,10 @@ stored without encryption.** The formatter is generated reproducibly by
   X-Forwarded-Host are ignored. Keep Gunicorn bound to loopback.
 - Secure, HttpOnly, SameSite cookies; Trusted Hosts; strict CSP without inline
   scripts/styles; no-store dynamic pages and noindex private routes.
+- HTML also sends `no-transform`: Cloudflare leaves the document intact rather
+  than injecting Web Analytics or JavaScript Detections into the editor. WAF
+  configuration is unchanged. Robots remains separate so the existing
+  Cloudflare-managed crawler policy is preserved.
 - Storage migration authenticates all encrypted rows before changing any. A
   wrong key or altered token aborts startup without re-encrypting damaged data.
   Legacy plaintext fallback is allowed only in the initial, atomic migration.

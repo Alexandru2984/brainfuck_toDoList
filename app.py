@@ -224,7 +224,10 @@ def register_hooks(app):
         if request.endpoint not in {"static", "healthz"}:
             # Authenticated todo content must never be cached by the browser,
             # Cloudflare, or any shared proxy in front of the app.
-            response.headers.setdefault("Cache-Control", "no-store")
+            cache_policy = (
+                "no-store, no-transform" if response.mimetype == "text/html" else "no-store"
+            )
+            response.headers.setdefault("Cache-Control", cache_policy)
         if request.endpoint not in {"static", "lab", "robots", "sitemap"}:
             response.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
         if current_app.config.get("SECURITY_HEADERS_ENABLED", True):

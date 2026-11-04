@@ -20,6 +20,16 @@ server {
     client_max_body_size 16k;
     limit_req_status 429;
 
+    # The app also secures direct loopback responses. Emit one consistent set
+    # at the edge instead of duplicate (and potentially ambiguous) headers.
+    proxy_hide_header Content-Security-Policy;
+    proxy_hide_header X-Content-Type-Options;
+    proxy_hide_header X-Frame-Options;
+    proxy_hide_header Cross-Origin-Opener-Policy;
+    proxy_hide_header Referrer-Policy;
+    proxy_hide_header Permissions-Policy;
+    proxy_hide_header Strict-Transport-Security;
+
     # Only Cloudflare and the locally terminated Cloudflare Tunnel reach this vhost.
     set $brainfuck_origin_allowed $from_cloudflare_origin;
     if ($brainfuck_origin_allowed = 0) {
