@@ -9,7 +9,7 @@ from contextlib import closing
 os.environ.setdefault("BRAINFUCK_SECRET_KEY", "test-secret")
 os.environ.setdefault("BRAINFUCK_PASSWORD", "test-password")
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 
 from app import create_app, decrypt_storage, encrypt_with_bf, format_with_bf, init_db
 
@@ -152,25 +152,28 @@ class EncryptionTests(BaseAppTest):
         self.add("Top secret plan")
         stored = self.stored_task()
         self.assertNotIn("Top secret plan", stored)
-        self.assertTrue(stored.startswith("gAAAAA"))  # Fernet token
+        self.assertTrue(stored.startswith("bf1:gAAAAA"))
         self.assertIn("Top secret plan", self.page())  # still renders decrypted
 
     def test_wrong_key_cannot_decrypt(self):
         self.login()
         self.add("Confidential")
         stored = self.stored_task()
-        other = create_app(
-            {
-                "DB_FILE": self.db_file,
-                "TESTING": True,
-                "ENCRYPTION_KEY": Fernet.generate_key().decode(),
-            }
-        )
-        with other.app_context():
-            self.assertEqual(decrypt_storage(stored), stored)
+        with self.assertRaises(InvalidToken):
+            create_app(
+                {
+                    "DB_FILE": self.db_file,
+                    "TESTING": True,
+                    "ENCRYPTION_KEY": Fernet.generate_key().decode(),
+                }
+            )
+        self.assertEqual(self.stored_task(), stored)
+        with self.app.app_context(), self.assertRaises(InvalidToken):
+            decrypt_storage("invalid ciphertext")
 
     def test_legacy_plaintext_row_is_migrated(self):
         with closing(sqlite3.connect(self.db_file)) as conn, conn:
+            conn.execute("DELETE FROM app_meta WHERE key = 'storage_version'")
             conn.execute("INSERT INTO todos (task, done, created_at) VALUES ('legacy-plain', 0, 0)")
         create_app({"DB_FILE": self.db_file, "TESTING": True})  # runs the migration
         with closing(sqlite3.connect(self.db_file)) as conn:

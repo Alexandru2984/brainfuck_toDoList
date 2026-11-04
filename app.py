@@ -3,8 +3,10 @@ import csv
 import hashlib
 import hmac
 import io
+import ipaddress
 import json
 import logging
+import math
 import os
 import secrets
 import socket
@@ -32,6 +34,7 @@ from flask import (
     session,
     url_for,
 )
+from werkzeug.exceptions import SecurityError
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from bf_interpreter import run_bf
@@ -76,6 +79,18 @@ def build_config():
         "SECRET_KEY": required_env("BRAINFUCK_SECRET_KEY", "SECRET_KEY"),
         "DB_FILE": os.environ.get("BRAINFUCK_DB_FILE", str(BASE_DIR / "todos.db")),
         "LOGIN_BF_CODE": generate_login_bf(password),
+        "AUTH_VERSION": hmac.new(
+            required_env("BRAINFUCK_SECRET_KEY", "SECRET_KEY").encode(),
+            password.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest(),
+        "TRUSTED_HOSTS": os.environ.get(
+            "BRAINFUCK_TRUSTED_HOSTS", "brainfuck.micutu.com,localhost,127.0.0.1"
+        ).split(","),
+        "MAX_FORM_PARTS": 30,
+        "MAX_FORM_MEMORY_SIZE": 16 * 1024,
+        "MAX_TASKS": int_env("BRAINFUCK_MAX_TASKS", 2000),
+        "PAGE_SIZE": 30,
         "MAX_TASK_LENGTH": int_env("BRAINFUCK_MAX_TASK_LENGTH", 500),
         "MAX_BF_STEPS": int_env("BRAINFUCK_MAX_BF_STEPS", 1_000_000),
         "MAX_BF_OUTPUT": int_env("BRAINFUCK_MAX_BF_OUTPUT", 50_000),
@@ -89,7 +104,7 @@ def build_config():
         "SESSION_COOKIE_SAMESITE": os.environ.get("BRAINFUCK_COOKIE_SAMESITE", "Lax"),
         "SECURITY_HEADERS_ENABLED": os.environ.get("BRAINFUCK_SECURITY_HEADERS_ENABLED", "1")
         != "0",
-        "TRUST_PROXY": bool_env("BRAINFUCK_TRUST_PROXY", True),
+        "TRUST_PROXY": bool_env("BRAINFUCK_TRUST_PROXY", False),
         "PROXY_HOPS": int_env("BRAINFUCK_PROXY_HOPS", 1),
         "TRUSTED_IP_HEADER": os.environ.get("BRAINFUCK_TRUSTED_IP_HEADER", "CF-Connecting-IP"),
         "LOGIN_MAX_ATTEMPTS": int_env("BRAINFUCK_LOGIN_MAX_ATTEMPTS", 8),
@@ -184,7 +199,7 @@ def create_app(config_overrides=None):
 
     if app.config.get("TRUST_PROXY", True):
         hops = app.config.get("PROXY_HOPS", 1)
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=hops, x_host=hops)
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=hops, x_host=0)
 
     configure_logging(app)
     init_db(app.config["DB_FILE"], app.config["SQLITE_TIMEOUT_SECONDS"])
@@ -214,8 +229,8 @@ def register_hooks(app):
         elapsed_ms = (time.perf_counter() - g.get("request_started_at", time.perf_counter())) * 1000
         if not current_app.config.get("TESTING"):
             current_app.logger.info(
-                "request path=%s method=%s status=%s duration_ms=%.2f",
-                request.path,
+                "request endpoint=%s method=%s status=%s duration_ms=%.2f",
+                request.endpoint,
                 request.method,
                 response.status_code,
                 elapsed_ms,
@@ -228,6 +243,8 @@ def register_hooks(app):
             response.headers.setdefault("X-Content-Type-Options", "nosniff")
             response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
             response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+            if request.is_secure:
+                response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
             response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
             response.headers.setdefault(
                 "Permissions-Policy",
@@ -246,6 +263,8 @@ def register_hooks(app):
 def register_error_handlers(app):
     @app.errorhandler(400)
     def bad_request(_error):
+        if isinstance(_error, SecurityError):
+            return Response("Invalid host", status=400, mimetype="text/plain")
         return (
             render_template(
                 "error.html",
@@ -293,7 +312,21 @@ def register_error_handlers(app):
 def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
-        if not session.get("logged_in"):
+        token = session.get("auth_session", "")
+        if not session.get("logged_in") or not isinstance(token, str):
+            return redirect(url_for("login"))
+        with closing(get_db_connection()) as conn:
+            valid = conn.execute(
+                "SELECT 1 FROM auth_sessions WHERE token_hash = ? AND auth_version = ? "
+                "AND expires_at > ?",
+                (
+                    hashlib.sha256(token.encode()).hexdigest(),
+                    current_app.config["AUTH_VERSION"],
+                    time.time(),
+                ),
+            ).fetchone()
+        if not valid:
+            session.clear()
             return redirect(url_for("login"))
         return view(*args, **kwargs)
 
@@ -301,45 +334,65 @@ def login_required(view):
 
 
 def encrypt_storage(payload):
-    """Authenticated encryption of a Brainfuck payload (code points 0-255)."""
-    token = current_app.config["FERNET"].encrypt(payload.encode("latin-1", "replace"))
-    return token.decode("ascii")
+    """Versioned, authenticated ciphertext. Never silently replace invalid bytes."""
+    return "bf1:" + current_app.config["FERNET"].encrypt(payload.encode("latin-1")).decode("ascii")
 
 
 def decrypt_storage(stored):
-    """Recover the Brainfuck payload, tolerating legacy pre-encryption rows."""
-    try:
-        plaintext = current_app.config["FERNET"].decrypt(stored.encode("ascii"))
-        return plaintext.decode("latin-1")
-    except (InvalidToken, ValueError):
-        # Row written before at-rest encryption was introduced; use it directly.
-        return stored
+    if not isinstance(stored, str) or not stored.startswith("bf1:"):
+        raise InvalidToken
+    return current_app.config["FERNET"].decrypt(stored[4:].encode("ascii")).decode("latin-1")
 
 
 def bf_payload_to_text(payload):
-    """Reverse the Brainfuck transform and HTML-escaping to recover plaintext.
-
-    Used for in-memory search; the stored bytes stay encrypted at rest.
-    """
-    caesar_reversed = "".join(chr((ord(ch) - 1) % 256) for ch in payload)
-    return unescape(caesar_reversed)
+    """The reverse byte transform also runs in Brainfuck."""
+    return unescape(
+        run_bf(
+            ",[-.,]",
+            payload,
+            max_steps=current_app.config["MAX_BF_STEPS"],
+            max_output=current_app.config["MAX_TASK_LENGTH"] * 16,
+        )
+    )
 
 
 def migrate_storage_encryption(app):
-    """Wrap any legacy plaintext task rows in authenticated encryption once."""
+    """Validate the entire database before atomically upgrading legacy storage.
+
+    Once versioned, every row MUST authenticate. A wrong key or altered token
+    aborts startup without re-encrypting any existing ciphertext.
+    """
     with app.app_context(), closing(get_db_connection()) as conn, conn:
-        rows = conn.execute("SELECT id, task FROM todos").fetchall()
-        for row in rows:
+        conn.execute("BEGIN IMMEDIATE")
+        version = conn.execute(
+            "SELECT value FROM app_meta WHERE key = 'storage_version'"
+        ).fetchone()
+        updates = []
+        for row in conn.execute("SELECT id, task FROM todos"):
             stored = row["task"]
             try:
-                app.config["FERNET"].decrypt(stored.encode("ascii"))
-                continue
-            except (InvalidToken, ValueError):
-                pass
-            conn.execute(
-                "UPDATE todos SET task = ? WHERE id = ?",
-                (encrypt_storage(stored), row["id"]),
-            )
+                if stored.startswith("bf1:"):
+                    decrypt_storage(stored)
+                    continue
+                if version:
+                    raise InvalidToken
+                if stored.startswith("gAAAA"):
+                    payload = app.config["FERNET"].decrypt(stored.encode("ascii")).decode("latin-1")
+                else:
+                    # Only the initial unversioned migration accepts legacy BF bytes.
+                    payload = stored
+                updates.append((encrypt_storage(payload), row["id"]))
+            except (InvalidToken, UnicodeError):
+                app.logger.error("storage_integrity_error task_id=%s", row["id"])
+                raise InvalidToken from None
+        conn.executemany("UPDATE todos SET task = ? WHERE id = ?", updates)
+        conn.execute("INSERT OR REPLACE INTO app_meta (key, value) VALUES ('storage_version', '1')")
+
+
+def next_top_position(conn):
+    """Position value that sorts a new task above all existing ones."""
+    row = conn.execute("SELECT MIN(position) FROM todos").fetchone()
+    return (row[0] if row[0] is not None else 0) - 1
 
 
 def store_task(conn, task, todo_id=None):
@@ -349,14 +402,28 @@ def store_task(conn, task, todo_id=None):
         return False
     if len(task) > current_app.config["MAX_TASK_LENGTH"]:
         abort(413)
-    stored_task = encrypt_storage(encrypt_with_bf(escape(task, quote=True)))
+    if any(ord(char) < 32 and char not in "\n\t" for char in task):
+        abort(400)
+    # Numeric HTML entities preserve Unicode through the BF byte machine and
+    # avoid the 0/255 sentinel ambiguity. Sanitization still happens on output.
+    ascii_task = escape(task, quote=True).encode("ascii", "xmlcharrefreplace").decode("ascii")
+    stored_task = encrypt_storage(encrypt_with_bf(ascii_task))
     if todo_id is None:
+        conn.execute("BEGIN IMMEDIATE")
+        if (
+            conn.execute("SELECT COUNT(*) FROM todos").fetchone()[0]
+            >= current_app.config["MAX_TASKS"]
+        ):
+            abort(413)
         conn.execute(
-            "INSERT INTO todos (task, done, created_at) VALUES (?, 0, ?)",
-            (stored_task, time.time()),
+            "INSERT INTO todos (task, done, created_at, position) VALUES (?, 0, ?, ?)",
+            (stored_task, time.time(), next_top_position(conn)),
         )
     else:
-        conn.execute("UPDATE todos SET task = ? WHERE id = ?", (stored_task, todo_id))
+        if not conn.execute(
+            "UPDATE todos SET task = ? WHERE id = ?", (stored_task, todo_id)
+        ).rowcount:
+            abort(404)
     return True
 
 
@@ -377,7 +444,7 @@ def register_routes(app):
         if request.method == "POST":
             validate_csrf()
             ip = client_ip()
-            locked_for = login_lock_remaining(ip)
+            locked_for = reserve_login_attempt(ip)
             if locked_for:
                 current_app.logger.warning("login_locked ip=%s retry_after=%s", ip, locked_for)
                 return (
@@ -398,9 +465,20 @@ def register_routes(app):
                 session.clear()
                 session.permanent = True
                 session["logged_in"] = True
+                token = secrets.token_urlsafe(32)
+                session["auth_session"] = token
+                with closing(get_db_connection()) as conn, conn:
+                    conn.execute("DELETE FROM auth_sessions WHERE expires_at <= ?", (time.time(),))
+                    conn.execute(
+                        "INSERT INTO auth_sessions (token_hash, auth_version, expires_at) VALUES (?, ?, ?)",
+                        (
+                            hashlib.sha256(token.encode()).hexdigest(),
+                            current_app.config["AUTH_VERSION"],
+                            time.time() + current_app.permanent_session_lifetime.total_seconds(),
+                        ),
+                    )
                 csrf_token()
                 return redirect(url_for("index"))
-            record_failed_login(ip)
             current_app.logger.warning("failed_login ip=%s", ip)
             error = "Parola incorecta! (Validat de Brainfuck)"
         return render_template("login.html", error=error)
@@ -408,6 +486,13 @@ def register_routes(app):
     @app.route("/logout", methods=["POST"])
     def logout():
         validate_csrf()
+        token = session.get("auth_session", "")
+        if isinstance(token, str):
+            with closing(get_db_connection()) as conn, conn:
+                conn.execute(
+                    "DELETE FROM auth_sessions WHERE token_hash = ?",
+                    (hashlib.sha256(token.encode()).hexdigest(),),
+                )
         session.clear()
         return redirect(url_for("login"))
 
@@ -421,7 +506,8 @@ def register_routes(app):
 
         with closing(get_db_connection()) as conn:
             todos = conn.execute(
-                "SELECT id, task, done, created_at FROM todos ORDER BY done ASC, id DESC"
+                "SELECT id, task, done, created_at FROM todos "
+                "ORDER BY done ASC, position ASC, id DESC"
             ).fetchall()
 
         total_count = len(todos)
@@ -504,10 +590,38 @@ def register_routes(app):
             flash(f"{removed} task-uri finalizate sterse.", "success")
         return redirect(url_for("index"))
 
+    @app.route("/reorder", methods=["POST"])
+    @login_required
+    def reorder():
+        validate_csrf()
+        raw = request.form.get("order", "")
+        parts = raw.split(",")
+        if (
+            not parts
+            or len(parts) > current_app.config["MAX_TASKS"]
+            or any(not p.isascii() or not p.isdecimal() or len(p) > 18 for p in parts)
+        ):
+            abort(400)
+        ids = [int(part) for part in parts]
+        if len(ids) != len(set(ids)):
+            abort(400)
+        with closing(get_db_connection()) as conn, conn:
+            conn.execute("BEGIN IMMEDIATE")
+            existing = {r[0] for r in conn.execute("SELECT id FROM todos")}
+            if set(ids) != existing:
+                abort(400)
+            conn.executemany(
+                "UPDATE todos SET position = ? WHERE id = ?",
+                [(position, todo_id) for position, todo_id in enumerate(ids)],
+            )
+        return ("", 204)
+
     @app.route("/export")
     @login_required
     def export():
         fmt = request.args.get("format", "json").lower()
+        if fmt not in {"json", "csv"}:
+            abort(400)
         with closing(get_db_connection()) as conn:
             rows = conn.execute(
                 "SELECT id, task, done, created_at FROM todos ORDER BY id"
@@ -562,55 +676,33 @@ def iso_timestamp(value):
 
 def csv_safe(text):
     """Neutralize spreadsheet formula injection in exported CSV cells."""
-    if text and text[0] in ("=", "+", "-", "@", "\t", "\r"):
+    if text and (text[0] in "\t\r\n" or text.lstrip(" \t\r\n").startswith(("=", "+", "-", "@"))):
         return "'" + text
     return text
 
 
 def client_ip():
-    """Best-effort real client IP.
-
-    The app binds to localhost and is only reachable through Nginx, which in
-    turn only accepts Cloudflare origins, so the proxy-set headers are
-    trustworthy in production. ``CF-Connecting-IP`` carries the original
-    visitor address; we fall back to the left-most ``X-Forwarded-For`` entry and
-    finally to the socket peer.
-    """
-    if current_app.config.get("TRUST_PROXY", True):
-        header = current_app.config.get("TRUSTED_IP_HEADER", "CF-Connecting-IP")
-        forwarded = request.headers.get(header)
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-        xff = request.headers.get("X-Forwarded-For")
-        if xff:
-            return xff.split(",")[0].strip()
-    return request.remote_addr or "unknown"
+    """Only ProxyFix's configured right-most proxy hop may set the client IP."""
+    try:
+        return str(ipaddress.ip_address(request.remote_addr))
+    except ValueError:
+        return "unknown"
 
 
-def login_lock_remaining(ip):
-    """Seconds the IP must wait before another login attempt, or 0 if allowed."""
+def reserve_login_attempt(ip):
+    """Reserve a slot in one transaction across all Gunicorn workers."""
     window = current_app.config["LOGIN_WINDOW_SECONDS"]
-    max_attempts = current_app.config["LOGIN_MAX_ATTEMPTS"]
-    cutoff = time.time() - window
+    now = time.time()
     with closing(get_db_connection()) as conn, conn:
-        conn.execute("DELETE FROM login_attempts WHERE created_at < ?", (cutoff,))
-        rows = conn.execute(
-            "SELECT created_at FROM login_attempts WHERE ip = ? ORDER BY created_at",
-            (ip,),
-        ).fetchall()
-    if len(rows) < max_attempts:
-        return 0
-    oldest = rows[0]["created_at"]
-    remaining = int(oldest + window - time.time()) + 1
-    return max(remaining, 1)
-
-
-def record_failed_login(ip):
-    with closing(get_db_connection()) as conn, conn:
-        conn.execute(
-            "INSERT INTO login_attempts (ip, created_at) VALUES (?, ?)",
-            (ip, time.time()),
-        )
+        conn.execute("BEGIN IMMEDIATE")
+        conn.execute("DELETE FROM login_attempts WHERE created_at < ?", (now - window,))
+        count, oldest = conn.execute(
+            "SELECT COUNT(*), MIN(created_at) FROM login_attempts WHERE ip = ?", (ip,)
+        ).fetchone()
+        if count >= current_app.config["LOGIN_MAX_ATTEMPTS"]:
+            return max(math.ceil(oldest + window - now), 1)
+        conn.execute("INSERT INTO login_attempts (ip, created_at) VALUES (?, ?)", (ip, now))
+    return 0
 
 
 def clear_login_attempts(ip):
@@ -629,7 +721,14 @@ def csrf_token():
 def validate_csrf():
     token = session.get(CSRF_SESSION_KEY)
     submitted_token = request.form.get("csrf_token", "")
-    if not token or not hmac.compare_digest(token, submitted_token):
+    if (
+        not isinstance(token, str)
+        or not isinstance(submitted_token, str)
+        or not token
+        or len(submitted_token) > 128
+        or not submitted_token.isascii()
+        or not hmac.compare_digest(token, submitted_token)
+    ):
         abort(400)
 
 
@@ -648,12 +747,26 @@ def init_db(db_file, timeout=5):
             """CREATE TABLE IF NOT EXISTS todos
                    (id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT NOT NULL)"""
         )
+        # Serialize schema migration across workers starting simultaneously.
+        conn.execute("BEGIN IMMEDIATE")
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+        )
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS auth_sessions "
+            "(token_hash TEXT PRIMARY KEY, auth_version TEXT NOT NULL, expires_at REAL NOT NULL)"
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_auth_expiry ON auth_sessions (expires_at)")
         # Lightweight migrations for existing databases.
         todo_columns = {row[1] for row in conn.execute("PRAGMA table_info(todos)")}
         if "done" not in todo_columns:
             conn.execute("ALTER TABLE todos ADD COLUMN done INTEGER NOT NULL DEFAULT 0")
         if "created_at" not in todo_columns:
             conn.execute("ALTER TABLE todos ADD COLUMN created_at REAL")
+        if "position" not in todo_columns:
+            conn.execute("ALTER TABLE todos ADD COLUMN position REAL")
+            # Preserve the previous newest-first order for existing rows.
+            conn.execute("UPDATE todos SET position = -id WHERE position IS NULL")
         conn.execute(
             """CREATE TABLE IF NOT EXISTS login_attempts
                    (id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -695,9 +808,11 @@ def format_with_bf(task):
 
 def verify_login_with_bf(password):
     try:
+        if not isinstance(password, str) or len(password.encode("utf-8")) > 1024:
+            return False
         result = run_bf(
             current_app.config["LOGIN_BF_CODE"],
-            password,
+            hashlib.sha256(password.encode("utf-8")).hexdigest(),
             max_steps=current_app.config["MAX_BF_STEPS"],
             max_output=16,
         )
@@ -715,11 +830,11 @@ def encrypt_with_bf(task):
             bf_code,
             task,
             max_steps=current_app.config["MAX_BF_STEPS"],
-            max_output=current_app.config["MAX_TASK_LENGTH"] * 8,
+            max_output=current_app.config["MAX_TASK_LENGTH"] * 16,
         )
     except Exception:
-        current_app.logger.exception("Brainfuck encryption failed")
-        return task
+        current_app.logger.exception("Brainfuck transform failed")
+        raise
 
 
 def get_free_port(start_port=5000):

@@ -1,13 +1,12 @@
-def run_bf(code, input_string, max_steps=1_000_000, max_output=50_000):
-    tape = [0] * 30000
-    ptr = 0
-    pc = 0
-    input_ptr = 0
-    output = []
-    steps = 0
+from functools import lru_cache
 
-    # Pre-compute jump table for faster loops
-    jump_map = {}
+
+@lru_cache(maxsize=32)
+def compile_bf(code):
+    if len(code) > 200_000:
+        raise ValueError("Brainfuck source is too large")
+    code = "".join(c for c in code if c in "><+-.,[]")
+    jumps = {}
     stack = []
     for i, char in enumerate(code):
         if char == "[":
@@ -16,11 +15,23 @@ def run_bf(code, input_string, max_steps=1_000_000, max_output=50_000):
             if not stack:
                 raise ValueError(f"Unmatched ']' at position {i}")
             start = stack.pop()
-            jump_map[start] = i
-            jump_map[i] = start
-
+            jumps[start] = i
+            jumps[i] = start
     if stack:
         raise ValueError(f"Unmatched '[' at position {stack.pop()}")
+    return code, jumps
+
+
+def run_bf(code, input_string, max_steps=1_000_000, max_output=50_000):
+    if len(input_string) > 100_000 or any(ord(c) > 255 for c in input_string):
+        raise ValueError("Brainfuck input must be a bounded byte string")
+    code, jump_map = compile_bf(code)
+    tape = [0] * 30000
+    ptr = 0
+    pc = 0
+    input_ptr = 0
+    output = []
+    steps = 0
 
     while pc < len(code):
         steps += 1

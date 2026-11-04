@@ -20,6 +20,8 @@ login.bf
 
 # Database
 todos.db
+*.db-wal
+*.db-shm
 *.sqlite3
 
 # Local cookie jars

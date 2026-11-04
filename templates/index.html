@@ -10,7 +10,6 @@
     <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
     <script src="{{ url_for('static', filename='theme.js') }}"></script>
-    <script defer src="https://analytics.micutu.com/script.js" data-website-id="6ccf54d7-10de-4daf-9882-23dc1ff95ffd"></script>
 </head>
 <body class="app-shell">
     <header class="topbar">
@@ -76,9 +75,9 @@
         </div>
     </section>
 
-    <section class="task-list" aria-label="Taskuri">
+    <section class="task-list" aria-label="Taskuri" data-reorder-url="{{ url_for('reorder') }}" data-csrf="{{ csrf_token() }}">
         {% for todo in todos %}
-            <div class="task-wrapper{% if todo.done %} is-done{% endif %}">
+            <div class="task-wrapper{% if todo.done %} is-done{% endif %}" data-id="{{ todo.id }}">
                 <form action="{{ url_for('toggle', id=todo.id) }}" method="POST" class="toggle-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="toggle-btn" aria-pressed="{{ 'true' if todo.done else 'false' }}"
