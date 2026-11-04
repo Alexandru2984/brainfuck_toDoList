@@ -51,3 +51,11 @@ Etapele 1–5 sunt implementate, comise și publicate. Verificări locale: 56 Py
 22 VM, 12 browser; verificări live: laborator, worker, mobile, autentificare și
 revocare după logout. SEO/CI sunt în repository; rularea GitHub Actions necesită
 push, care nu a fost făcut. Propunerile din „Următoarele iterații” rămân backlog.
+
+## Extinderea educațională
+
+Cele opt direcții din EXPANSION.md sunt implementate: debugger reversibil,
+profilare, 12 lecții, puzzle zilnic/code golf, colecție de 18 programe, grafică BF,
+optimizator/comparator și interpretor BF scris în BF. Exemplele anterioare rămân
+funcționale. Rămân în backlog conturile individuale, traducerea completă EN,
+backupul off-host și alertarea către operator.

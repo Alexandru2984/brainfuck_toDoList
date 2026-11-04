@@ -194,8 +194,23 @@ window.addEventListener("pagehide", () => {
   controller?.abort();
   clearInterval(clock);
 });
-select(new URLSearchParams(location.search).get("date") || today(), true);
-
-window.addEventListener("hashchange", () =>
-  select(new URLSearchParams(location.search).get("date") || today(), true),
-);
+async function loadFromUrl() {
+  let date = new URLSearchParams(location.search).get("date") || today(),
+    invalid = false;
+  try {
+    utcDay(date);
+    if (date < "2000-01-01" || date > today()) throw new Error();
+  } catch {
+    date = today();
+    invalid = true;
+  }
+  await select(date, true);
+  if (invalid)
+    message(
+      "daily-status",
+      "Data linkului este invalidă; este afișată provocarea de astăzi.",
+      true,
+    );
+}
+loadFromUrl();
+window.addEventListener("hashchange", loadFromUrl);

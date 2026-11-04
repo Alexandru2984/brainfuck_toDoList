@@ -115,3 +115,21 @@ este vizibilă și descărcabilă. Referința nu înlocuiește rezultatul BF.
 12 teste Node verifică outputul, memoria și pointerul; browserul verifică și
 bugetul epuizat și respingerea programelor prea mari. Demonstrația nu promite că
 orice program interior de 31 de instrucțiuni se termină în bugetul exterior.
+
+## Verificarea finală înainte de publicare
+
+- 60 teste Python: paginile publice sunt GET-only, fără query de taskuri sau
+  cookie nou; sitemap/canonical corecte; toate sursele BF sunt reproductibile.
+- 83 teste Node: VM, undo/seek/profilare, toate lecțiile, 40 de zile de puzzle,
+  domenii aritmetice complete, ROT13/UTF-8, fiecare pixel, optimizare și 13
+  verificări pentru interpretorul BF, inclusiv pointer circular.
+- 28 teste Playwright: desktop și mobil, navigare/layout între 320 și 1440 px,
+  cazuri greșite cu output text/HEX, share inert, import/export, PNG, reduced
+  motion, comparație neconcludentă și limite ale interpretorului BF.
+- 14 capturi pentru cele șapte pagini publice, fără erori JS/CSP în preview.
+- Bandit și auditurile Python/npm nu au constatări cunoscute în versiunile
+  verificate. Nu s-au adăugat dependențe runtime sau servicii externe.
+
+Nu există clasament global: scorurile locale nu sunt dovezi competitive.
+Optimizarea este verificată pe cazurile alese, nu pretinde echivalență universală.
+Interpretorul BF și toate celelalte programe rămân supuse bugetelor explicite.

@@ -78,3 +78,21 @@ curl --head https://brainfuck.micutu.com/tasks
 A healthy `/healthz` is 200; anonymous `/tasks` redirects to login. `/lab` is
 public and `/tasks`, login and exports send noindex and no-store headers.
 Browser code runs locally and makes no execution requests to the VPS.
+
+## Educational expansion boundaries
+
+All six educational pages are GET-only and never query private task content or
+execute submitted programs on the server. Browser jobs use bounded Workers and
+an eight-second watchdog; editor runs retain their ten-second watchdog. There
+are no new production dependencies, migrations, accounts or vendors.
+
+The VM keeps at most 20,000 reverse deltas, not full-tape snapshots per step.
+Profiling arrays are bounded by tape/source limits. Comparisons allow eight
+inputs of 512 UTF-8 bytes each, 500,000 steps and 4 KiB output per program/case.
+Frame dimensions are checked before allocation; output is numeric pixel data,
+not markup. Self-interpreter limits apply before executing the outer BF source.
+
+The daily puzzle uses the UTC date. Records are local numeric data and do not
+establish competitive identity. HTML remains no-store/no-transform; the new
+public URLs are canonical and listed in the sitemap. The private workspace
+continues to require login and remains noindex.

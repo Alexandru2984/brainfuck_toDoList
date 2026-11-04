@@ -521,7 +521,11 @@ def register_routes(app):
         return Response(
             '<?xml version="1.0" encoding="UTF-8"?>'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-            "<url><loc>https://brainfuck.micutu.com/lab</loc></url></urlset>",
+            + "".join(
+                f"<url><loc>https://brainfuck.micutu.com/{name}</loc></url>"
+                for name in ["lab", *PUBLIC_STUDIOS]
+            )
+            + "</urlset>",
             mimetype="application/xml",
         )
 

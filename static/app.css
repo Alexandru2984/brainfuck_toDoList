@@ -152,6 +152,9 @@ p {
   align-items: center;
 }
 .header-nav > a {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
   color: var(--muted);
   font-size: 13px;
   text-decoration: none;
@@ -583,6 +586,9 @@ summary {
     justify-content: space-between;
   }
   .header-nav > a {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
     font-size: 12px;
   }
   .header-nav form .ghost-button {
@@ -656,4 +662,13 @@ summary {
     animation: none !important;
     transition: none !important;
   }
+}
+/* Keep the keyboard skip link focusable without painting it offscreen. */
+.skip-link {
+  opacity: 0;
+  pointer-events: none;
+}
+.skip-link:focus {
+  opacity: 1;
+  pointer-events: auto;
 }

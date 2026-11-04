@@ -231,6 +231,7 @@ for (const id of [
   "graphics-count",
 ])
   $(id).addEventListener("input", () => {
+    if (id === "graphics-code") revision++;
     controller?.abort();
     invalidate();
   });

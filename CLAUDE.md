@@ -49,3 +49,26 @@ owner identity, without agent attribution or Co-authored-by. Do not push or
 rewrite public history without a separate instruction. Historical `login.bf`
 contains an obsolete secret; do not print it. The current live password was
 compared against historical verifiers in memory, without exposing values.
+
+## Expanded learning tools
+
+- `curriculum.mjs`, `academy.mjs`: twelve lessons; predictions and exercise
+  cases execute in the Worker. Persist only completion IDs.
+- `daily.mjs`: pure deterministic UTC puzzle and score functions;
+  `daily-page.mjs`: UI and capped local numeric records, never source/input.
+- `library-data.mjs`: domains, maps and cases for eighteen public programs.
+- `studio-worker.mjs`: bounded run/evaluate/compare/self jobs;
+  `studio-common.mjs`: cancellation, watchdog, text-only rendering and share.
+- `graphics.mjs`: numeric frame decoding/palettes only. BF produces pixel data.
+- `optimizer.mjs`: conservative BF-to-BF rewrites. Comparisons must report
+  timeout as inconclusive and compare full final state, not output alone.
+- `self-interpreter.bf`: real sixteen-cell virtual BF machine. Never replace a
+  failed outer execution with reference output. Keep the 31-command/128-byte
+  inner limits and the two-million-step outer limit.
+- `tools/bf_builder.py`, `build_algorithms.py`, `build_self_interpreter.py`:
+  build-time assemblers; artifacts are committed and reproducibility-tested.
+
+History is a bounded circular delta log. Undo must restore profiling, input and
+output. Keep public educational routes GET-only and free of task DB queries.
+New public pages belong in PUBLIC_STUDIOS and the public sitemap. Keep every
+named stage committed with the owner's identity and no agent attribution.

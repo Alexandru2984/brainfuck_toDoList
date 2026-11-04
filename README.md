@@ -151,3 +151,54 @@ hostname. See [operations](docs/OPERATIONS.md) for recovery and monitoring.
 
 The manifest supports home-screen shortcuts; offline execution and caching of
 private pages are not implemented.
+
+## Learn and experiment
+
+The expanded public site includes:
+
+| Route | What you can do |
+| --- | --- |
+| `/academy` | Twelve guided lessons, predictions executed by the VM, hints, editable exercises, reference sources and local completion progress. |
+| `/challenges` | A deterministic UTC daily puzzle, date archive, code golf metrics and separate local records for BF length, steps and distinct cells. |
+| `/library` | Eighteen runnable programs with input domains, memory maps, explanations, verified examples and downloadable BF source. |
+| `/graphics` | Five BF pixel/animation programs, editable source, bounded frame sizes, grayscale/green palettes, manual playback and PNG export. |
+| `/optimize` | Explained BF-to-BF transformations, editable A/B programs and full-state comparisons on up to eight inputs. |
+| `/self` | A real BF self-interpreter: parser, dispatch, indexed virtual memory and bracket matching written entirely in BF. |
+
+The laboratory also supports reverse stepping, a timeline covering the latest
+20,000 instructions, changed-cell highlighting and execution profiles for
+instructions, nested loops and memory accesses. Undo restores input/output and
+profiling counters as well as the tape. Editing code/input invalidates history.
+
+The self-interpreter deliberately uses **16 virtual circular cells**, at most
+**31 inner commands** and **128 input bytes**. It shares the outer two-million-step
+budget. Completed output, virtual memory and pointer are checked against a
+16-cell reference machine; an exhausted budget displays an explicit partial
+result, never a substituted JavaScript result. Full BF source is 19,769 commands.
+
+Graphics uses one output byte per grayscale pixel, row-major, with concatenated
+frames: 1–32 × 1–32 pixels and 1–8 frames, at most 8,192 bytes. Source algorithms
+compute the patterns in BF; Canvas only displays the resulting bytes. Playback
+requires a click, stops when the tab is hidden, and honors reduced motion.
+
+Optimization assumes the documented 8-bit cells, circular 30,000-cell tape and
+zero-initialized memory. Rules remove redundant operations without introducing
+extra instructions. A/B verification checks output bytes, the entire final tape,
+pointer and consumed input. Passing supplied examples is not a proof for all
+inputs; invalid programs and exhausted budgets are inconclusive.
+
+Daily records store only numeric metrics, not source or input. Academy stores
+only completed lesson IDs. Browser-local progress can be edited by the device
+owner and is not used for a public leaderboard. Code-only links do not autorun.
+
+Rebuild the committed BF artifacts with:
+
+```sh
+python tools/build_formatter.py
+python tools/build_algorithms.py
+python tools/build_self_interpreter.py
+```
+
+Generators run only during development. Generated `.bf` executes in the byte
+machine; no Python/JavaScript algorithm callback produces its result. Python
+checks ensure the committed BF artifacts exactly match these build tools.

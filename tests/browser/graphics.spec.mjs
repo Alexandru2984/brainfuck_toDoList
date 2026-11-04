@@ -6,13 +6,11 @@ test("BF graphics renders exact pixels, exports PNG and respects reduced motion"
   await expect(page.locator("#graphics-code")).not.toHaveValue("");
   await page.click("#graphics-run");
   await expect(page.locator("#graphics-status")).toContainText("256 pixeli");
-  const pixels = await page
-    .locator("#graphics-canvas")
-    .evaluate((canvas) => ({
-      width: canvas.width,
-      height: canvas.height,
-      data: [...canvas.getContext("2d").getImageData(0, 0, 2, 1).data],
-    }));
+  const pixels = await page.locator("#graphics-canvas").evaluate((canvas) => ({
+    width: canvas.width,
+    height: canvas.height,
+    data: [...canvas.getContext("2d").getImageData(0, 0, 2, 1).data],
+  }));
   expect(pixels).toEqual({
     width: 16,
     height: 16,
@@ -38,4 +36,12 @@ test("BF graphics renders exact pixels, exports PNG and respects reduced motion"
   await expect(page.locator("#graphics-status")).toContainText(
     "Dimensiuni permise",
   );
+  await page.route("**/pixels-gradient.bf", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    await route.continue();
+  });
+  await page.goto("/graphics");
+  await page.fill("#graphics-code", "+.");
+  await page.waitForTimeout(650);
+  await expect(page.locator("#graphics-code")).toHaveValue("+.");
 });

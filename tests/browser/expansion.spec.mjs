@@ -7,6 +7,10 @@ test("academy checks real BF predictions and solutions and persists only progres
   await page.fill("#prediction-answer", "3");
   await page.click("#prediction-check");
   await expect(page.locator("#prediction-status")).toContainText("Corect");
+  await page.fill("#lesson-code", ".");
+  await page.click("#lesson-check");
+  await expect(page.locator("#lesson-results")).toContainText("Obținut:");
+  await expect(page.locator("#lesson-results")).toContainText("HEX 00");
   await page.fill("#lesson-code", "+".repeat(65) + ".");
   await page.click("#lesson-check");
   await expect(page.locator("#lesson-status")).toContainText(
@@ -77,4 +81,46 @@ test("algorithm library executes actual BF and opens large sources in the debugg
   expect((await page.locator("#code").inputValue()).length).toBeGreaterThan(
     6000,
   );
+});
+test("all new pages keep controls within mobile viewports and share links stay inert", async ({
+  page,
+}) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const path of [
+      "/academy",
+      "/challenges",
+      "/library",
+      "/graphics",
+      "/optimize",
+      "/self",
+    ]) {
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+        `${path} overflow at ${width}`,
+      ).toBeLessThanOrEqual(width + 1);
+      const primary = page.locator("main .primary-button").first();
+      const box = await primary.boundingBox();
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+    }
+  }
+  const payload = '</textarea><img src=x onerror="window.injected=true">';
+  const hash = Buffer.from(JSON.stringify({ v: 1, code: payload })).toString(
+    "base64url",
+  );
+  for (const [path, editor] of [
+    ["/self", "#self-code"],
+    ["/graphics", "#graphics-code"],
+    ["/challenges", "#daily-code"],
+  ]) {
+    await page.goto(path + "#code=" + hash);
+    await expect(page.locator(editor)).toHaveValue(payload);
+    expect(await page.evaluate(() => window.injected)).toBeUndefined();
+  }
+  expect(errors).toEqual([]);
 });

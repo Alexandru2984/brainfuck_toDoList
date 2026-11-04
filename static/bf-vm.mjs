@@ -66,11 +66,13 @@ export class BrainfuckVM {
     if (this.done) return false;
     if (this.steps >= this.limits.steps)
       throw new Error(
-        "Limita de 2.000.000 de pași a fost atinsă. Verifică buclele.",
+        `Limita de ${this.limits.steps.toLocaleString("ro-RO")} de pași a fost atinsă. Verifică buclele.`,
       );
     const op = this.code[this.pc];
     if (op === "." && this.output.length >= this.limits.output)
-      throw new Error("Limita de output: 65.536 de octeți.");
+      throw new Error(
+        `Limita de output: ${this.limits.output.toLocaleString("ro-RO")} de octeți.`,
+      );
     const oldPc = this.pc;
     const delta = this.limits.history
       ? {

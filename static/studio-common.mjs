@@ -112,15 +112,42 @@ export function sharedCode() {
 }
 export function showCases(target, results) {
   target.replaceChildren(
-    ...results.map((result, i) =>
-      node(
+    ...results.map((result, i) => {
+      const row = node(
         "div",
-        `${result.pass ? "✓" : "×"} Caz ${i + 1} · input ${JSON.stringify(result.input)}${result.error ? " · " + result.error : ` · ${result.steps} pași · ${result.cells} celule`}`,
+        undefined,
         `test-result ${result.pass ? "pass" : "fail"}`,
-      ),
-    ),
+      );
+      row.append(
+        node(
+          "p",
+          `${result.pass ? "✓" : "×"} Caz ${i + 1} · input ${JSON.stringify(result.input)}${result.error ? " · " + result.error : ` · ${result.steps} pași · ${result.cells} celule`}`,
+        ),
+      );
+      if (!result.pass && result.actual && result.expected) {
+        const format = (bytes) =>
+          `${JSON.stringify(new TextDecoder().decode(Uint8Array.from(bytes)))} · HEX ${bytes.map((byte) => byte.toString(16).padStart(2, "0")).join(" ") || "∅"}`;
+        row.append(
+          node(
+            "pre",
+            `Așteptat: ${format(result.expected)}\nObținut: ${format(result.actual)}`,
+            "studio-note",
+          ),
+        );
+      }
+      if (result.memoryMatch === false)
+        row.append(
+          node(
+            "p",
+            "Condițiile de memorie ale exercițiului nu sunt îndeplinite.",
+            "studio-note",
+          ),
+        );
+      return row;
+    }),
   );
 }
+
 export function attachCodeTools(editorId, prefix) {
   const editor = $(editorId);
   $(prefix + "-download")?.addEventListener("click", () =>

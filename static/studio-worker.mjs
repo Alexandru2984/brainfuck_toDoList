@@ -30,6 +30,7 @@ function evaluate(code, cases) {
           memory &&
           actual.length === expected.length &&
           actual.every((byte, i) => byte === expected[i]),
+        memoryMatch: memory,
         actual: [...actual.slice(0, 256)],
         expected: [...expected.slice(0, 256)],
         input: sample.input || "",

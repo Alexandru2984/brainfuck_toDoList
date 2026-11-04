@@ -19,10 +19,11 @@
 {% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='lab.css') }}">{% endblock %}
 {% block content %}
 <section class="lab-hero">
-    <div><p class="eyebrow"><span class="status-dot"></span> Un limbaj mic. Un laborator întreg.</p><h1>Opt instrucțiuni.<br><span class="hero-accent">O lume de posibilități.</span></h1><p class="hero-copy">Curiozitatea e tot ce îți trebuie. Scrie Brainfuck, urmărește fiecare pas și descoperă ce se întâmplă între paranteze.</p><a href="#playground" class="button-link primary-button">Deschide laboratorul <span aria-hidden="true">↘</span></a><a href="#challenges" class="hero-link">Acceptă o provocare →</a></div>
+    <div><p class="eyebrow"><span class="status-dot"></span> Un limbaj mic. Un laborator întreg.</p><h1>Opt instrucțiuni.<br><span class="hero-accent">O lume de posibilități.</span></h1><p class="hero-copy">Curiozitatea e tot ce îți trebuie. Scrie Brainfuck, urmărește fiecare pas și descoperă ce se întâmplă între paranteze.</p><a href="#playground" class="button-link primary-button">Deschide laboratorul <span aria-hidden="true">↘</span></a><a href="/challenges" class="hero-link">Provocarea zilei →</a></div>
     <div class="hero-visual" aria-hidden="true"><div class="visual-caption"><span>THE BEAUTY OF SIMPLE</span><span>01 — ∞</span></div><div class="hero-code">++<span>[</span>&gt;++<br>&lt;-<span>]</span>&gt;<span>.</span></div><div class="hero-tape"><span>000</span><span class="lit">004</span><span>000</span><span>000</span></div><p>tiny language / big ideas</p></div>
 </section>
 <div class="lab-facts"><span><b>08</b> instrucțiuni</span><span><b>30.000</b> celule de memorie</span><span><b>100%</b> execuție în browser</span><span><b>0</b> conturi necesare</span></div>
+<nav class="lab-discover" aria-label="Explorează Brainfuck"><a href="/academy"><strong>12 lecții ghidate</strong><span>Învață prin exerciții și predicții</span></a><a href="/library"><strong>18 programe BF</strong><span>Algoritmi, surse și hărți de memorie</span></a><a href="/graphics"><strong>Experimente în Brainfuck</strong><span>Pixeli, optimizare și BF în BF</span></a></nav>
 <section id="playground" class="playground" aria-labelledby="playground-title" itemscope itemtype="https://schema.org/SoftwareApplication">
     <meta itemprop="name" content="Brainfuck Lab">
     <meta itemprop="applicationCategory" content="EducationalApplication">

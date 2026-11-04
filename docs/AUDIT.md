@@ -130,3 +130,27 @@ existentă. Antetele duplicate app/Nginx au fost normalizate la o singură polit
 
 Verdict final: **livrare funcțională verificată**, cu limitele operaționale de mai
 sus declarate. Nu se pretinde certificare sau audit independent complet al VPS-ului.
+
+## Extinderea laboratorului
+
+Suprafața nouă este formată din pagini educaționale GET-only și fișiere statice.
+Teste dedicate blochează accesul accidental al paginilor publice la query-uri de
+taskuri și verifică absența cookie-urilor/noindex pe conținutul public.
+Nicio rută nouă nu execută cod trimis pe server.
+
+Istoricul reversibil este circular și limitat la 20.000 de diferențe. Profilarea
+folosește tablouri de dimensiune fixă. Inputurile de comparație, cazurile de test,
+cadrele și VM-ul interior au bugete independente; watchdog-urile termină Workerul.
+Dimensiunile Canvas se validează înainte de alocare. Vizualizările folosesc
+textContent/value și valori numerice, fără interpretare de markup sau eval.
+Linkurile partajate nu pornesc programe și nu includ inputul. Progresul lecțiilor
+și scorurile zilnice persistă numai identificatori/numere, nu cod ori inputuri.
+
+Verificări pentru această extindere: 60 Python, 83 Node, 28 browser. Linkuri cu
+payload HTML au fost verificate ca inerte; cazurile cu bucle nefinite se opresc
+la limite și nu sunt raportate ca rezultate valide. Bandit, pip-audit și npm
+nu au constatări cunoscute pentru versiunile verificate.
+
+Limitele operaționale anterioare (workspace comun, backup off-host/alertare,
+istoric Git sensibil vechi și testare browser numai Chromium) rămân explicite.
+Nu se declară un audit independent complet sau certificare.
