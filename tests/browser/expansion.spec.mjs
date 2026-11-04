@@ -58,3 +58,23 @@ test("daily challenges validate BF and keep separate local scores without source
   await expect(page.locator("#daily-code")).toHaveValue(code);
   await expect(page.locator("#daily-results")).toBeEmpty();
 });
+test("algorithm library executes actual BF and opens large sources in the debugger", async ({
+  page,
+}) => {
+  await page.goto("/library?program=division");
+  await expect(page.locator("#library-cards article")).toHaveCount(18);
+  await expect(page.locator("#library-title")).toHaveText("Împărțire cu rest");
+  await page.fill("#library-input", "92");
+  await page.click("#library-run");
+  await expect(page.locator("#library-output")).toHaveText("4 1");
+  await page.click("#library-test");
+  await expect(page.locator("#library-results .pass")).toHaveCount(4);
+  await page.goto("/library?program=rot13");
+  await expect(page.locator("#library-source")).toContainText("[");
+  await page.click("#library-lab");
+  await expect(page).toHaveURL(/program=rot13/);
+  await expect(page.locator("#example-title")).toHaveText("ROT13");
+  expect((await page.locator("#code").inputValue()).length).toBeGreaterThan(
+    6000,
+  );
+});

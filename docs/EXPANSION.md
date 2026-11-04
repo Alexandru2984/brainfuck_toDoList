@@ -81,3 +81,11 @@ probleme cu cazuri generate, recorduri locale separate pentru lungime/pași/celu
 share fără input și fără autorun. Persistența reține maximum 365 de zile și numai
 scoruri. Soluțiile de referință au trecut 40 de zile generate; fluxul zilnic și
 partajarea sunt verificate în browser pe desktop și mobil.
+
+### Etapa 5
+
+Implementate: colecție de 18 programe, opt algoritmi suplimentari, fișe cu domeniu
+și memorie, rulare BF, teste de exemple, export și încărcare în debugger inclusiv
+pentru surse mari. Generatoarele sunt numai build-time; algoritmii executați sunt
+în fișierele .bf. Testele acoperă complet domeniile aritmetice cu o cifră și
+caracterele ASCII imprimabile pentru ROT13, plus UTF-8 și fluxul browser.

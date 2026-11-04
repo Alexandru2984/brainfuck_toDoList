@@ -541,3 +541,11 @@ if ($("back")) {
       worker?.postMessage({ type: "seek", step: Number($("timeline").value) });
   });
 }
+
+const requestedProgram = new URLSearchParams(location.search).get("program");
+if (requestedProgram && !location.hash.startsWith("#code=")) {
+  const { library } = await import("./library-data.mjs");
+  const program = library.find((p) => p.id === requestedProgram);
+  if (program) await loadExample({ ...program, name: program.title });
+  else announce("Programul cerut nu există în bibliotecă.", true);
+}
