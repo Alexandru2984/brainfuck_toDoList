@@ -225,6 +225,8 @@ def register_hooks(app):
             # Authenticated todo content must never be cached by the browser,
             # Cloudflare, or any shared proxy in front of the app.
             response.headers.setdefault("Cache-Control", "no-store")
+        if request.endpoint not in {"static", "lab", "robots", "sitemap"}:
+            response.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
         if current_app.config.get("SECURITY_HEADERS_ENABLED", True):
             response.headers.setdefault("X-Content-Type-Options", "nosniff")
             response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
@@ -300,7 +302,7 @@ def login_required(view):
     def wrapped(*args, **kwargs):
         token = session.get("auth_session", "")
         if not session.get("logged_in") or not isinstance(token, str):
-            return redirect(url_for("login"))
+            return redirect(url_for("lab" if request.path == "/" else "login"))
         with closing(get_db_connection()) as conn:
             valid = conn.execute(
                 "SELECT 1 FROM auth_sessions WHERE token_hash = ? AND auth_version = ? "
@@ -444,6 +446,24 @@ def task_metadata():
 
 
 def register_routes(app):
+    @app.route("/lab")
+    def lab():
+        instructions = [
+            (">", "Înainte", "Mută pointerul cu o celulă la dreapta."),
+            ("<", "Înapoi", "Mută pointerul cu o celulă la stânga."),
+            ("+", "Adună", "Crește valoarea celulei curente cu 1."),
+            ("-", "Scade", "Scade valoarea celulei curente cu 1."),
+            (".", "Afișează", "Trimite valoarea celulei curente în output, ca octet."),
+            (",", "Citește", "Citește un octet din input în celula curentă. La EOF scrie 0."),
+            ("[", "Intră în buclă", "Dacă celula este 0, sare după paranteza pereche ]."),
+            ("]", "Repetă", "Dacă celula nu este 0, revine la începutul buclei."),
+        ]
+        return render_template(
+            "lab.html",
+            default_source=(BASE_DIR / "static/programs/hello.bf").read_text(),
+            instructions=instructions,
+        )
+
     @app.route("/healthz")
     def healthz():
         try:
