@@ -154,3 +154,9 @@ nu au constatări cunoscute pentru versiunile verificate.
 Limitele operaționale anterioare (workspace comun, backup off-host/alertare,
 istoric Git sensibil vechi și testare browser numai Chromium) rămân explicite.
 Nu se declară un audit independent complet sau certificare.
+
+Verificarea live a extinderii a trecut pentru toate cele opt funcții prin
+Cloudflare, fără erori JS/CSP sau injectări externe. Serviciul este activ,
+healthcheck-ul răspunde ok, sitemap-ul public are șapte URL-uri, iar taskurile
+anonime rămân protejate. Preflight-ul cu cheile reale a rulat numai pe o copie;
+nu s-au schimbat secrete, schema de date, configurația WAF sau dependențe live.

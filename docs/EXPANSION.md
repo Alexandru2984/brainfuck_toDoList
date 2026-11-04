@@ -133,3 +133,23 @@ orice program interior de 31 de instrucțiuni se termină în bugetul exterior.
 Nu există clasament global: scorurile locale nu sunt dovezi competitive.
 Optimizarea este verificată pe cazurile alese, nu pretinde echivalență universală.
 Interpretorul BF și toate celelalte programe rămân supuse bugetelor explicite.
+
+## Livrare în producție — 4 noiembrie 2026
+
+Cod publicat: `884b9b6`. Backupul consistent și copia de preflight cu cheile reale
+au trecut integrity_check; nu s-au modificat scheme, secrete sau dependențe live.
+S-a repornit exclusiv `brainfuck-canary`; configurația Nginx existentă este validă
+și nu a necesitat reload.
+
+Prin domeniul public au trecut toate cele opt verificări funcționale: undo și
+profilare, lecție rezolvată, puzzle zilnic cu scor, algoritm executat, pixeli
+verificați în Canvas, comparație de stare și outputul interpretorului BF.
+Browser live: zero erori JS/CSP, layout mobil valid. Cele șapte pagini publice
+au răspuns 200 cu o singură politică CSP strictă și no-store/no-transform, fără
+injectări externe. Sitemap-ul are șapte URL-uri; taskurile anonime cer login și
+rămân noindex. Healthcheck ok, serviciu activ și fără erori recente în jurnal.
+Verificările live nu au scris taskuri și nu au folosit autentificarea privată.
+
+Livrarea are zece commituri locale, inclusiv planul și raportul de producție,
+cu identitatea proprietarului, fără coautor și fără push. Backlogul operațional
+și limitele explicite documentate mai sus rămân valabile.
