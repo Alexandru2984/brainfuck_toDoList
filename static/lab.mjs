@@ -7,6 +7,7 @@ const editor = $("code"),
   status = $("run-status");
 let worker,
   testWorker,
+  exampleLoad = null,
   loaded = "",
   snapshot = null,
   running = false,
@@ -38,15 +39,16 @@ function announce(message, error = false) {
 }
 function setRunning(value) {
   running = value;
+  const blocked = value || Boolean(exampleLoad);
   $("pause").disabled = !value;
-  $("step").disabled = value;
-  $("run").disabled = value;
+  $("step").disabled = blocked;
+  $("run").disabled = blocked;
   editor.readOnly = value;
   input.readOnly = value;
   $("speed").disabled = value;
   if ($("back")) {
-    $("back").disabled = value || !worker || !snapshot?.historyCount;
-    $("timeline").disabled = value || !worker || !snapshot?.furthestStep;
+    $("back").disabled = blocked || !worker || !snapshot?.historyCount;
+    $("timeline").disabled = blocked || !worker || !snapshot?.furthestStep;
   }
   clearTimeout(watchdog);
   if (value)
@@ -93,7 +95,7 @@ function stopWorker() {
   setRunning(false);
 }
 function send(action) {
-  if (running) return;
+  if (running || exampleLoad) return;
   const identity = JSON.stringify([
     editor.value,
     input.value,
@@ -118,6 +120,7 @@ function send(action) {
   }
 }
 function reset() {
+  cancelExampleLoad();
   stopWorker();
   snapshot = null;
   $("output").textContent = "Outputul programului va apărea aici.";
@@ -187,6 +190,11 @@ function renderSnapshot(data) {
     editor.setSelectionRange(data.sourceIndex, data.sourceIndex + 1);
 }
 function codeChanged() {
+  if (exampleLoad) {
+    cancelExampleLoad();
+    setRunning(false);
+    announce("Încărcarea exemplului a fost anulată. Codul tău este păstrat.");
+  }
   if (snapshot || worker) reset();
   const ops = editor.value.match(/[><+\-.,\[\]]/g) || [];
   $("instruction-count").textContent = `${ops.length} instrucțiuni`;
@@ -208,11 +216,22 @@ function replaceProgram(code, stdin = "") {
   codeChanged();
 }
 async function loadExample(example) {
+  reset();
+  const controller = new AbortController();
+  exampleLoad = controller;
+  // Apply defaults before the request; subsequent user input must survive it.
+  input.value = example.input || "";
+  setRunning(false);
+  announce(`Se încarcă: ${example.name}…`);
   try {
-    const response = await fetch(`/static/programs/${example.file}`);
+    const response = await fetch(`/static/programs/${example.file}`, {
+      signal: controller.signal,
+    });
     if (!response.ok) throw new Error();
     const source = await response.text();
-    replaceProgram(source, example.input);
+    if (exampleLoad !== controller) return;
+    exampleLoad = null;
+    replaceProgram(source, input.value);
     lastExample = example.id;
     $("example-title").textContent = example.name;
     $("example-description").textContent = example.description;
@@ -226,8 +245,15 @@ async function loadExample(example) {
       );
     announce(`Încărcat: ${example.name}. Apasă Rulează.`);
   } catch {
+    if (exampleLoad !== controller) return;
+    exampleLoad = null;
+    setRunning(false);
     announce("Exemplul nu a putut fi încărcat. Încearcă din nou.", true);
   }
+}
+function cancelExampleLoad() {
+  exampleLoad?.abort();
+  exampleLoad = null;
 }
 function showBreakpoints() {
   $("breakpoint-list").textContent = breakpoints.size
@@ -262,7 +288,7 @@ function selectChallenge() {
   $("challenge-hint-details").open = false;
 }
 function checkChallenge() {
-  if (!currentChallenge || testWorker) return;
+  if (!currentChallenge || testWorker || exampleLoad) return;
   const challenge = currentChallenge,
     testedCode = editor.value,
     button = $("verify-challenge");
@@ -516,6 +542,7 @@ document.addEventListener("keydown", (event) => {
 });
 window.addEventListener("hashchange", decodeShare);
 window.addEventListener("pagehide", () => {
+  cancelExampleLoad();
   stopWorker();
   testWorker?.terminate();
 });

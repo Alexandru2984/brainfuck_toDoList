@@ -20,5 +20,34 @@ alternativă verificată, nu o actualizare aplicată automat prin această corec
 - [Rularea verde pentru Playwright 1.64.1](https://github.com/Alexandru2984/brainfuck_toDoList/actions/runs/41857935018)
 - [Migrarea oficială ubuntu-latest](https://github.blog/changelog/2026-09-17-ubuntu-26-generally-available-and-latest-migration/)
 
-Commitul corecției trebuie publicat înainte de a putea confirma o nouă rulare
-verde pe GitHub. Testele locale nu substituie verificarea runnerului găzduit.
+## A doua eroare: încărcarea asincronă a exemplelor
+
+După publicarea `e869dd1`, rularea `41859243794` a instalat browserul și a
+executat testele: 26 au trecut, două au eșuat, pe desktop și mobil. Testul UTF-8
+aștepta `Salut, 🧠`, dar primea valoarea implicită `Salut, Brainfuck!`.
+Joburile Python 3.13/3.14 și auditurile au trecut în continuare.
+
+Cauza este în aplicație: `loadExample()` aplica inputul implicit abia după
+descărcarea sursei. Un răspuns întârziat suprascria astfel inputul utilizatorului.
+Rezultatul depindea de sincronizare; o rulare verde cu alt browser nu exclude
+această eroare.
+
+Corecția aplică inputul implicit imediat la selectare și păstrează editările
+ulterioare. Execuția rămâne blocată până la primirea sursei, inclusiv pentru
+scurtăturile de tastatură. Editarea codului, resetarea și selectarea altui exemplu
+anulează cererea veche; răspunsurile anulate nu pot modifica editorul sau statusul.
+Un eșec de rețea deblochează controalele și permite reîncercarea.
+
+Patru regresii Playwright, fiecare pe desktop și mobil, acoperă inputul editat
+în timpul descărcării, editarea codului, selecțiile succesive și eroarea HTTP.
+Răspunsurile sunt controlate prin interceptarea cererilor, fără temporizări fixe
+sau reîncercări care să ascundă problema. Regresia pentru input a reprodus eroarea
+înainte de corecție. Verificarea locală folosește Chromium 148 / Playwright v1223,
+aceeași versiune instalată de CI pentru Playwright 1.60.0. Pe gazda locală Ubuntu
+26.04, instalarea și rularea folosesc `PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64`,
+fără modificarea pachetelor de sistem.
+
+- [Rularea cu cele două erori de input](https://github.com/Alexandru2984/brainfuck_toDoList/actions/runs/41859243794)
+
+Confirmarea finală se face urmărind toate joburile pe GitHub după publicarea
+corecției; verificarea locală nu substituie runnerul găzduit.

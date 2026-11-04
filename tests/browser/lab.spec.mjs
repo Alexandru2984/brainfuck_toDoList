@@ -32,6 +32,109 @@ test("real Worker runs examples, UTF-8, challenges and step debugging", async ({
   await expect(page.locator(".memory-cell")).toHaveCount(16);
   expect(errors).toEqual([]);
 });
+test("a delayed example preserves input typed while its source loads", async ({
+  page,
+}) => {
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  await page.route("**/programs/echo.bf", async (route) => {
+    await gate;
+    await route.continue();
+  });
+  await page.goto("/lab");
+  const requested = page.waitForRequest("**/programs/echo.bf");
+  await page.click('[data-example="echo"]');
+  await requested;
+  await page.fill("#stdin", "Salut, 🧠");
+  await expect(page.locator("#run")).toBeDisabled();
+  await expect(page.locator("#step")).toBeDisabled();
+  await page.locator("#stdin").press("Control+Enter");
+  await expect(page.locator("#metric-steps")).toHaveText("0");
+  release();
+  await expect(page.locator("#run-status")).toContainText("Încărcat:");
+  await expect(page.locator("#stdin")).toHaveValue("Salut, 🧠");
+  await run(page);
+  await expect(page.locator("#output")).toHaveText("Salut, 🧠");
+});
+
+test("editing code cancels a pending example before it can overwrite the editor", async ({
+  page,
+}) => {
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  let finishRoute;
+  const routed = new Promise((resolve) => (finishRoute = resolve));
+  await page.route("**/programs/echo.bf", async (route) => {
+    await gate;
+    await route.continue();
+    finishRoute();
+  });
+  await page.goto("/lab");
+  const requested = page.waitForRequest("**/programs/echo.bf");
+  await page.click('[data-example="echo"]');
+  await requested;
+  await expect(page.locator("#run")).toBeDisabled();
+  const cancelled = page.waitForEvent("requestfailed", {
+    predicate: (request) => request.url().endsWith("/programs/echo.bf"),
+  });
+  await page.fill("#code", "+++++.");
+  await cancelled;
+  await expect(page.locator("#run")).toBeEnabled();
+  release();
+  await routed;
+  await run(page);
+  await expect(page.locator("#code")).toHaveValue("+++++.");
+  await expect(page.locator("#metric-steps")).toHaveText("6");
+  await expect(page.locator("#metric-output")).toHaveText("1");
+});
+
+test("selecting another example cancels the older request", async ({
+  page,
+}) => {
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  await page.route("**/programs/echo.bf", async (route) => {
+    await gate;
+    await route.continue();
+  });
+  await page.goto("/lab");
+  const requested = page.waitForRequest("**/programs/echo.bf");
+  await page.click('[data-example="echo"]');
+  await requested;
+  const cancelled = page.waitForEvent("requestfailed", {
+    predicate: (request) => request.url().endsWith("/programs/echo.bf"),
+  });
+  await page.click('[data-example="reverse"]');
+  await cancelled;
+  release();
+  await expect(page.locator("#example-title")).toHaveText("Oglinda");
+  await run(page);
+  await expect(page.locator("#output")).toHaveText("kcufniarb");
+  await expect(page.locator('[data-example="reverse"]')).toHaveClass(
+    /is-active/,
+  );
+});
+
+test("an example fetch failure unlocks execution and allows retry", async ({
+  page,
+}) => {
+  await page.route("**/programs/echo.bf", (route) =>
+    route.fulfill({ status: 503, body: "Unavailable" }),
+  );
+  await page.goto("/lab");
+  await page.click('[data-example="echo"]');
+  await expect(page.locator("#run-status")).toContainText(
+    "Exemplul nu a putut fi încărcat",
+  );
+  await expect(page.locator("#run")).toBeEnabled();
+  await expect(page.locator("#step")).toBeEnabled();
+  await page.unroute("**/programs/echo.bf");
+  await page.click('[data-example="echo"]');
+  await expect(page.locator("#run-status")).toContainText("Încărcat:");
+  await run(page);
+  await expect(page.locator("#output")).toHaveText("Salut, Brainfuck!");
+});
+
 test("breakpoints, pause, syntax errors and endless loops stay bounded", async ({
   page,
 }) => {
