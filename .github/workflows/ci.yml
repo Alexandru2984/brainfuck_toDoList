@@ -35,7 +35,8 @@ jobs:
       - run: PYTHONWARNINGS=error python -m unittest
 
   browser:
-    runs-on: ubuntu-latest
+    # Playwright 1.60 supports Noble; ubuntu-latest can migrate independently.
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
