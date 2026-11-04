@@ -97,3 +97,11 @@ Implementate: cinci programe BF pentru grafică, preview Canvas din octeți,
 export PNG și share fără input. Dimensiunile se validează înainte de alocare.
 Testele verifică fiecare pixel și exportul real, iar reduced motion dezactivează
 redarea automată a cadrelor, păstrând navigarea manuală.
+
+### Etapa 7
+
+Implementate: normalizare de instrucțiuni modulo 256, deplasări circulare,
+curățări redundante și bucle inițiale pe zero, cu jurnal explicativ. Comparația
+rulează maximum opt inputuri și verifică întreaga bandă finală, pointerul,
+outputul și consumul de input. Profiluri și costuri sunt afișate separat.
+Testele acoperă păstrarea stării, diferențe reale și limite neconcludente.
