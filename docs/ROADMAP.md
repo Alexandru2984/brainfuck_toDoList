@@ -1,5 +1,7 @@
 # Brainfuck Lab — plan de produs
 
+Planul noii extinderi autorizate este în [EXPANSION.md](EXPANSION.md).
+
 Principiu: programele, exemplele, provocările și transformările sunt Brainfuck.
 Python asigură HTTP, criptografie și persistență; JavaScript asigură editorul și
 mașina virtuală din browser. Nu adăugăm un framework pentru o interfață care nu
