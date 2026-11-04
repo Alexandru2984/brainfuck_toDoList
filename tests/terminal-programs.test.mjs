@@ -94,6 +94,15 @@ test("BF byte dump prints UTF-8 bytes rather than Unicode code points", () => {
 });
 
 test("BF guessing rejects invalid partial matches and stops after five attempts", () => {
+  for (let value = 0; value < 256; value++) {
+    const result = execute("terminal-guess", `${value}\n37\n`);
+    const hint = value < 37 ? "MAI MARE" : value > 37 ? "MAI MIC" : "CORECT";
+    assert.ok(result.includes(`Numar (0..255): ${hint}\n`), String(value));
+    assert.match(result, /CORECT\nSfarsit de joc\.\n$/);
+  }
+  const largest = execute("terminal-guess", "255\n".repeat(5));
+  assert.equal((largest.match(/MAI MIC/g) || []).length, 5);
+  assert.match(largest, /Sfarsit de joc\.\n$/);
   const text = execute("terminal-guess", "37x\n37\n");
   assert.match(text, /Input invalid\.\nNumar \(0\.\.255\): CORECT/);
   assert.equal((text.match(/CORECT/g) || []).length, 1);

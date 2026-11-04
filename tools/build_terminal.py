@@ -193,9 +193,11 @@ def guessing():
         p.equal(35, 0, lambda: say(p, "Input invalid.\n"))
 
         def compare():
-            p.greater_equal(34, 33, 36)
-            p.equal(36, 0, lambda: say(p, "MAI MARE\n"))
-            p.nonzero(36, lambda: say(p, "MAI MIC\n"))
+            # Compare the small target against the guess: the decrementing
+            # scratch operand stays <=37 even for five guesses of 255.
+            p.greater_equal(33, 34, 36)
+            p.equal(36, 0, lambda: say(p, "MAI MIC\n"))
+            p.nonzero(36, lambda: say(p, "MAI MARE\n"))
             # Equal is handled before the hints, so a correct guess emits only CORECT.
 
         p.clear(37)
