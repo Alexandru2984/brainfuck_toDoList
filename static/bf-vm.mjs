@@ -15,6 +15,8 @@ export class BrainfuckVM {
     this.input = new TextEncoder().encode(input);
     if (this.input.length > this.limits.input)
       throw new Error("Inputul depășește limita de 4.096 de octeți.");
+    this.interactive = limits.interactive === true;
+    this.inputEnded = !this.interactive;
     this.code = [];
     this.positions = [];
     this.jumps = new Map();
@@ -62,8 +64,32 @@ export class BrainfuckVM {
   get done() {
     return this.pc >= this.code.length;
   }
+  get waiting() {
+    return (
+      !this.done &&
+      !this.inputEnded &&
+      this.code[this.pc] === "," &&
+      this.inputPtr >= this.input.length
+    );
+  }
+  feedInput(text = "", end = false) {
+    if (!this.interactive || this.inputEnded)
+      throw new Error("Fluxul de input este închis.");
+    if (typeof text !== "string" || typeof end !== "boolean")
+      throw new TypeError("Input invalid.");
+    if (text.length + this.input.length > this.limits.input)
+      throw new Error("Inputul cumulativ depășește limita de 4.096 de octeți.");
+    const bytes = new TextEncoder().encode(text);
+    if (this.input.length + bytes.length > this.limits.input)
+      throw new Error("Inputul cumulativ depășește limita de 4.096 de octeți.");
+    const combined = new Uint8Array(this.input.length + bytes.length);
+    combined.set(this.input);
+    combined.set(bytes, this.input.length);
+    this.input = combined;
+    this.inputEnded = end;
+  }
   step() {
-    if (this.done) return false;
+    if (this.done || this.waiting) return false;
     if (this.steps >= this.limits.steps)
       throw new Error(
         `Limita de ${this.limits.steps.toLocaleString("ro-RO")} de pași a fost atinsă. Verifică buclele.`,
@@ -160,7 +186,8 @@ export class BrainfuckVM {
     )
       throw new RangeError("Pasul nu mai este în istoricul disponibil.");
     while (this.steps > target) this.back();
-    while (this.steps < target) this.step();
+    while (this.steps < target)
+      if (!this.step()) throw new RangeError("Execuția așteaptă input.");
   }
   profileSnapshot() {
     const instructions = Array.from(this.instructionVisits, (count, index) => ({
@@ -205,6 +232,9 @@ export class BrainfuckVM {
       ptr: this.ptr,
       steps: this.steps,
       inputPtr: Math.min(this.inputPtr, this.input.length),
+      inputBytes: this.input.length,
+      inputEnded: this.inputEnded,
+      waiting: this.waiting,
       output: this.output,
       done: this.done,
       cells: Array.from(this.tape.slice(start, start + 16)),
