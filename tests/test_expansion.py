@@ -43,9 +43,10 @@ import sys
 from pathlib import Path
 sys.path.insert(0, 'tools')
 from build_algorithms import BUILDERS
+from build_terminal import BUILDERS as TERMINAL_BUILDERS
 from build_self_interpreter import build
 from build_formatter import build as formatter
-for name, builder in BUILDERS.items():
+for name, builder in (BUILDERS | TERMINAL_BUILDERS).items():
     assert Path('static/programs/'+name+'.bf').read_text() == builder(), name
 assert Path('static/programs/self-interpreter.bf').read_text() == build()
 assert Path('format_task.bf').read_text() == formatter()
