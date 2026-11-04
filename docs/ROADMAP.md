@@ -60,3 +60,11 @@ profilare, 12 lecții, puzzle zilnic/code golf, colecție de 18 programe, grafic
 optimizator/comparator și interpretor BF scris în BF. Exemplele anterioare rămân
 funcționale. Rămân în backlog conturile individuale, traducerea completă EN,
 backupul off-host și alertarea către operator.
+
+## Terminalul conversațional BF
+
+Livrat la `/terminal`: input incremental, EOF explicit, pauză/continuare,
+memorie, UTF-8/HEX, export binar, import și partajare fără autorun. Cinci programe
+noi execută prompturi, parsare zecimală, calculator pe octeți, inspectarea
+octeților și joc de ghicit în BF. Colecția ajunge la 23 de programe. Planul și
+verificările sunt în [INTERACTIVE.md](INTERACTIVE.md).

@@ -51,3 +51,18 @@ fără modificarea pachetelor de sistem.
 
 Confirmarea finală se face urmărind toate joburile pe GitHub după publicarea
 corecției; verificarea locală nu substituie runnerul găzduit.
+
+## Confirmare și extinderea terminalului
+
+Fixul `916173e` a fost publicat și verificat în
+[rularea 41861258122](https://github.com/Alexandru2984/brainfuck_toDoList/actions/runs/41861258122):
+toate cele patru joburi au trecut, inclusiv 36 de teste browser, 83 Node,
+60 Python pe fiecare versiune 3.13/3.14 și auditurile de dependențe.
+
+Extinderea ulterioară cu terminal BF are local 56 de teste browser și 103 Node;
+cele 60 de teste Python includ noua rută și reproducibilitatea programelor.
+Verificările de layout rulează separat pe fiecare lățime, cu selectarea
+controlului vizibil, iar cele șase fluxuri de terminal se execută în ambele
+proiecte browser. Versiunile dependențelor, runnerul Ubuntu 24.04 și joburile CI
+rămân aceleași. Aceste commituri de funcții nu sunt încă publicate; validarea
+remote a noii versiuni rămâne de făcut după push.

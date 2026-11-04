@@ -34,3 +34,41 @@ autorizarea precedentă pentru fixul CI.
 - Cererile de surse întârziate nu suprascriu editările, în acord cu regresiile CI.
 - Inputul este UTF-8. Algoritmii de numere procesează cifre ASCII și linii LF;
   limitele și comportamentul EOF/NUL sunt explicate lângă fiecare program.
+
+## Livrat pe 4 noiembrie 2026
+
+Etapele sunt implementate și disponibile la `/terminal`. Colecția are 23 de
+programe și filtrează separat categoria Terminal; inputul de probă acceptă mai
+multe linii. Navigația publică, metadatele canonice și sitemapul includ pagina.
+
+Programele noi sunt `terminal-echo.bf`, `terminal-decimal.bf`,
+`terminal-calculator.bf`, `terminal-bytes.bf` și `terminal-guess.bf`.
+Generatorul rulează numai la dezvoltare; nu substituie execuția BF la runtime.
+Parserul zecimal acceptă 1–3 cifre ASCII în 0–255 și respinge overflow-ul înainte
+de calcul. Jocul are ținta vizibilă 37 și cinci încercări; comparația orientată
+spre operandul mic permite cinci răspunsuri 255 în 885.691 de pași. Calculatorul
+execută inclusiv 255 × 255 în 1.507.861 de pași, cu rezultat 1 modulo 256.
+
+Verificări locale: 60 teste Python, 103 Node și 56 browser. Cele șase fluxuri de
+terminal rulează pe desktop și mobil; verificările comune de layout sunt
+separate pentru 320/390/768/1440 px și aleg controale vizibile. Sunt acoperite
+încărcarea întârziată a sursei și importului, inputul incremental, EOF, pauza,
+oprirea, buclele infinite, exportul binar și share-ul inert. Toate valorile
+zecimale 0–255 sunt verificate cu LF și cu zerouri inițiale/EOF. După optimizarea
+jocului au trecut din nou cazurile programelor BF, comparațiile pentru fiecare
+valoare 0–255 și reproducibilitatea artefactelor. Ruff, Prettier, Bandit,
+pip-audit și npm audit au trecut; scanerele nu au raportat vulnerabilități
+cunoscute în dependențele verificate.
+
+Livrarea a folosit backup SQLite consistent și un preflight pe clonă cu cheile
+de producție, fără afișarea lor. A fost repornit doar `brainfuck-canary`.
+Verificările prin Cloudflare, folosind curl și Chromium, au confirmat cele opt
+pagini publice, o singură politică CSP, sitemapul, sănătatea bazei și redirectul
+anonim al workspace-ului privat. Terminalul real a executat în browser
+calculatorul, UTF-8/EOF și cele cinci încercări maxime la 320 px, fără erori de
+consolă sau cereri de execuție către server. Evenimentul `pagehide` a eliberat
+Workerul și a lăsat disponibilă pornirea unei sesiuni noi.
+
+Commiturile acestei extinderi sunt locale; publicarea și noua rulare GitHub
+Actions necesită instrucțiune separată. Ultima verificare CI publicată pentru
+fixul anterior este în [CI.md](CI.md).
