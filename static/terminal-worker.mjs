@@ -30,10 +30,10 @@ self.onmessage = ({ data }) => {
         return;
       } else throw new Error("Comandă necunoscută.");
     }
-    emit();
+    emit(data.type === "feed" ? { ack: data.id } : {});
     schedule();
   } catch (error) {
-    if (session) emit({ notice: error.message });
+    if (session) emit({ notice: error.message, ack: data.id });
     else self.postMessage({ state: "error", error: error.message });
   }
 };

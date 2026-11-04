@@ -1,4 +1,5 @@
 import { examples } from "./catalog.mjs";
+import { terminalPrograms } from "./terminal-data.mjs";
 const known = {
   hello: "Hello World!\n",
   echo: "Salut, Brainfuck!",
@@ -224,4 +225,4 @@ export const algorithms = [
     ],
   },
 ];
-export const library = [...algorithms, ...originals];
+export const library = [...algorithms, ...originals, ...terminalPrograms];

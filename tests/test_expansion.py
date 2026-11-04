@@ -6,7 +6,7 @@ from tests.test_app import BaseAppTest
 
 
 class ExpansionTests(BaseAppTest):
-    pages = ["academy", "challenges", "library", "graphics", "optimize", "self"]
+    pages = ["academy", "challenges", "library", "graphics", "optimize", "self", "terminal"]
 
     def test_new_public_pages_have_canonical_metadata_and_no_private_queries(self):
         with patch("app.get_db_connection", side_effect=AssertionError("public task query")):

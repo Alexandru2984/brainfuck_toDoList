@@ -160,10 +160,11 @@ The expanded public site includes:
 | --- | --- |
 | `/academy` | Twelve guided lessons, predictions executed by the VM, hints, editable exercises, reference sources and local completion progress. |
 | `/challenges` | A deterministic UTC daily puzzle, date archive, code golf metrics and separate local records for BF length, steps and distinct cells. |
-| `/library` | Eighteen runnable programs with input domains, memory maps, explanations, verified examples and downloadable BF source. |
+| `/library` | Twenty-three runnable programs with input domains, memory maps, explanations, verified examples and downloadable BF source. |
 | `/graphics` | Five BF pixel/animation programs, editable source, bounded frame sizes, grayscale/green palettes, manual playback and PNG export. |
 | `/optimize` | Explained BF-to-BF transformations, editable A/B programs and full-state comparisons on up to eight inputs. |
 | `/self` | A real BF self-interpreter: parser, dispatch, indexed virtual memory and bracket matching written entirely in BF. |
+| `/terminal` | Incremental input, explicit EOF, pause/resume, UTF-8/HEX, binary export and five BF programs: echo, decimal parsing, byte calculator, byte inspector and guessing game. |
 
 The laboratory also supports reverse stepping, a timeline covering the latest
 20,000 instructions, changed-cell highlighting and execution profiles for
@@ -197,8 +198,27 @@ Rebuild the committed BF artifacts with:
 python tools/build_formatter.py
 python tools/build_algorithms.py
 python tools/build_self_interpreter.py
+python tools/build_terminal.py
 ```
 
 Generators run only during development. Generated `.bf` executes in the byte
 machine; no Python/JavaScript algorithm callback produces its result. Python
 checks ensure the committed BF artifacts exactly match these build tools.
+
+The interactive terminal leaves its input stream open. A `,` instruction waits
+without consuming steps when no bytes are available; explicit EOF closes the
+stream and writes zero. Existing lab and batch runs retain immediate EOF.
+Input is limited to 4,096 cumulative UTF-8 bytes, output to 64 KiB and execution
+to two million instructions / ten seconds of active computation. Waiting for
+the user consumes neither steps nor compute time. A separate watchdog terminates
+an unresponsive Worker.
+
+Decimal input accepts one to three ASCII digits in 0–255, terminated by LF or
+EOF; invalid/overflowing lines are rejected in BF. The calculator asks for A,
+operator and B on separate LF-terminated lines; +, - and * wrap modulo 256.
+The guessing game has five attempts and a visible target of 37 in its source.
+NUL is indistinguishable from EOF to the BF program. Code-only shares of known
+examples use a program ID; custom sources use the bounded URL fragment. Neither
+format includes input or runs automatically. Terminal source/input is not
+persisted; only the last sixteen submitted chunks are displayed during a session.
+See [the interactive delivery plan](docs/INTERACTIVE.md).

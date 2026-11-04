@@ -56,7 +56,7 @@ compared against historical verifiers in memory, without exposing values.
   cases execute in the Worker. Persist only completion IDs.
 - `daily.mjs`: pure deterministic UTC puzzle and score functions;
   `daily-page.mjs`: UI and capped local numeric records, never source/input.
-- `library-data.mjs`: domains, maps and cases for eighteen public programs.
+- `library-data.mjs`: domains, maps and cases for twenty-three public programs.
 - `studio-worker.mjs`: bounded run/evaluate/compare/self jobs;
   `studio-common.mjs`: cancellation, watchdog, text-only rendering and share.
 - `graphics.mjs`: numeric frame decoding/palettes only. BF produces pixel data.
@@ -67,6 +67,12 @@ compared against historical verifiers in memory, without exposing values.
   inner limits and the two-million-step outer limit.
 - `tools/bf_builder.py`, `build_algorithms.py`, `build_self_interpreter.py`:
   build-time assemblers; artifacts are committed and reproducibility-tested.
+- `build_terminal.py`, `terminal-data.mjs`: five real BF conversational programs.
+  Prompts, ASCII decimal validation, arithmetic and numeric output stay in BF.
+- `terminal-session.mjs`, `terminal-worker.mjs`, `terminal-page.mjs`: incremental
+  UTF-8 input, explicit EOF and bounded interactive execution. Never convert an
+  empty open stream to zero. Waiting consumes no steps or active compute budget.
+  Source fetches/imports must not overwrite subsequent edits or running code.
 
 History is a bounded circular delta log. Undo must restore profiling, input and
 output. Keep public educational routes GET-only and free of task DB queries.

@@ -57,6 +57,8 @@ async function select(program, scroll = false) {
   $("library-output").textContent = "Outputul va apărea aici.";
   message("library-status", "Încarc sursa…");
   $("library-lab").href = "/lab?program=" + program.id;
+  $("library-terminal-panel").hidden = program.category !== "Terminal";
+  $("library-terminal").href = "/terminal?program=" + program.id;
   const url = new URL(location.href);
   url.searchParams.set("program", program.id);
   history.replaceState(null, "", url.pathname + url.search);

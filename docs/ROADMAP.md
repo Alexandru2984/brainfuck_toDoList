@@ -1,6 +1,7 @@
 # Brainfuck Lab — plan de produs
 
-Planul noii extinderi autorizate este în [EXPANSION.md](EXPANSION.md).
+Extinderea educațională este în [EXPANSION.md](EXPANSION.md), iar continuarea cu
+terminal și programe conversaționale BF este în [INTERACTIVE.md](INTERACTIVE.md).
 
 Principiu: programele, exemplele, provocările și transformările sunt Brainfuck.
 Python asigură HTTP, criptografie și persistență; JavaScript asigură editorul și

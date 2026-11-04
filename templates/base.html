@@ -22,6 +22,7 @@
         {% if 'challenges' in studio_pages %}<a href="/challenges">Provocări</a>{% endif %}
         {% if 'library' in studio_pages %}<a href="/library">Colecție</a>{% endif %}
         {% if 'graphics' in studio_pages %}<a href="/graphics">Experimente</a>{% endif %}
+        {% if 'terminal' in studio_pages %}<a href="/terminal">Terminal BF</a>{% endif %}
         <a href="{{ url_for('index') }}">Taskuri private</a>
         <button type="button" id="theme-toggle" class="icon-button" aria-label="Comută tema">☾</button>
         {% if session.get('logged_in') %}

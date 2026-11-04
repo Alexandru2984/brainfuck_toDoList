@@ -81,7 +81,7 @@ Browser code runs locally and makes no execution requests to the VPS.
 
 ## Educational expansion boundaries
 
-All six educational pages are GET-only and never query private task content or
+All seven educational pages are GET-only and never query private task content or
 execute submitted programs on the server. Browser jobs use bounded Workers and
 an eight-second watchdog; editor runs retain their ten-second watchdog. There
 are no new production dependencies, migrations, accounts or vendors.
@@ -96,3 +96,16 @@ The daily puzzle uses the UTC date. Records are local numeric data and do not
 establish competitive identity. HTML remains no-store/no-transform; the new
 public URLs are canonical and listed in the sitemap. The private workspace
 continues to require login and remains noindex.
+
+The interactive terminal runs in its own Worker with the same source, input,
+output, tape and step caps. Its ten-second active-compute budget excludes input
+waiting; a twelve-second response watchdog terminates an unresponsive Worker.
+Input is cumulative across submissions, EOF is explicit, and source/input is
+never persisted or sent to an execution endpoint. The visible input log retains
+at most sixteen submissions. Snapshot previews cap output at 8 KiB; binary
+downloads retrieve at most 64 KiB from the Worker. Stopping releases the Worker;
+after stopping a truncated run, only its preview remains available.
+
+The terminal adds no Python or npm dependency and no schema/environment/vhost
+change. Deployment requires restarting only `brainfuck-canary` so its route
+registry includes `/terminal`. Nginx and Cloudflare configuration remain unchanged.

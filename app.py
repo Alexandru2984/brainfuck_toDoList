@@ -73,6 +73,11 @@ PUBLIC_STUDIOS = {
         "Un interpretor Brainfuck real, scris numai cu cele opt instrucțiuni, cu sursa și costul execuției la vedere.",
         "Experimente",
     ),
+    "terminal": (
+        "Terminal Brainfuck interactiv",
+        "Conversează cu programe Brainfuck: input în timpul execuției, calculator pe octeți, conversii zecimale și joc text. Direct în browser.",
+        "Experimente",
+    ),
 }
 
 

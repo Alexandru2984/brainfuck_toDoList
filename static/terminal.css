@@ -1,0 +1,90 @@
+.terminal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 24px;
+  align-items: start;
+}
+.terminal-grid > * {
+  min-width: 0;
+}
+.terminal-grid select,
+.terminal-grid textarea {
+  width: 100%;
+}
+.terminal-heading,
+.terminal-output-tools {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.terminal-heading h2 {
+  margin: 0;
+}
+.terminal-output-tools select {
+  width: auto;
+}
+.terminal-output {
+  min-height: 230px;
+  max-height: 440px;
+  margin-top: 14px;
+}
+.terminal-line-label {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.6;
+}
+.terminal-line-label input {
+  width: auto;
+  accent-color: var(--accent);
+}
+.terminal-memory {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 6px;
+}
+.terminal-memory span {
+  padding: 8px 2px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  text-align: center;
+  font: 9px/1.7 var(--mono);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.terminal-memory strong {
+  display: block;
+  font-size: 14px;
+  color: var(--text);
+}
+.terminal-memory .current {
+  border-color: var(--accent);
+}
+.terminal-memory .current strong {
+  color: var(--accent);
+}
+.terminal-sent {
+  padding-left: 24px;
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+.terminal-grid .file-import {
+  margin: 0;
+  color: var(--text);
+  display: inline-flex;
+}
+@media (max-width: 1000px) {
+  .terminal-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  .terminal-memory {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .terminal-output {
+    min-height: 170px;
+  }
+}

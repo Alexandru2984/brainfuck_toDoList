@@ -66,7 +66,7 @@ test("algorithm library executes actual BF and opens large sources in the debugg
   page,
 }) => {
   await page.goto("/library?program=division");
-  await expect(page.locator("#library-cards article")).toHaveCount(18);
+  await expect(page.locator("#library-cards article")).toHaveCount(23);
   await expect(page.locator("#library-title")).toHaveText("Împărțire cu rest");
   await page.fill("#library-input", "92");
   await page.click("#library-run");
@@ -82,12 +82,12 @@ test("algorithm library executes actual BF and opens large sources in the debugg
     6000,
   );
 });
-test("all new pages keep controls within mobile viewports and share links stay inert", async ({
-  page,
-}) => {
-  const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  for (const width of [320, 390, 768, 1440]) {
+for (const width of [320, 390, 768, 1440]) {
+  test(`educational pages keep visible controls within ${width}px`, async ({
+    page,
+  }) => {
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
     await page.setViewportSize({ width, height: 900 });
     for (const path of [
       "/academy",
@@ -96,6 +96,7 @@ test("all new pages keep controls within mobile viewports and share links stay i
       "/graphics",
       "/optimize",
       "/self",
+      "/terminal",
     ]) {
       await page.goto(path);
       await page.waitForLoadState("networkidle");
@@ -103,12 +104,20 @@ test("all new pages keep controls within mobile viewports and share links stay i
         await page.evaluate(() => document.documentElement.scrollWidth),
         `${path} overflow at ${width}`,
       ).toBeLessThanOrEqual(width + 1);
-      const primary = page.locator("main .primary-button").first();
+      const primary = page.locator("main .primary-button:visible").first();
+      await expect(primary).toBeVisible();
       const box = await primary.boundingBox();
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(width);
     }
-  }
+    expect(errors).toEqual([]);
+  });
+}
+test("shared programs remain inert and cannot inject markup in any educational editor", async ({
+  page,
+}) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
   const payload = '</textarea><img src=x onerror="window.injected=true">';
   const hash = Buffer.from(JSON.stringify({ v: 1, code: payload })).toString(
     "base64url",
@@ -117,6 +126,7 @@ test("all new pages keep controls within mobile viewports and share links stay i
     ["/self", "#self-code"],
     ["/graphics", "#graphics-code"],
     ["/challenges", "#daily-code"],
+    ["/terminal", "#terminal-code"],
   ]) {
     await page.goto(path + "#code=" + hash);
     await expect(page.locator(editor)).toHaveValue(payload);
