@@ -229,7 +229,7 @@ def register_hooks(app):
             response.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
         if current_app.config.get("SECURITY_HEADERS_ENABLED", True):
             response.headers.setdefault("X-Content-Type-Options", "nosniff")
-            response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+            response.headers.setdefault("X-Frame-Options", "DENY")
             response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
             if request.is_secure:
                 response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
@@ -249,6 +249,14 @@ def register_hooks(app):
 
 
 def register_error_handlers(app):
+    @app.errorhandler(404)
+    def not_found(_error):
+        return render_template(
+            "error.html",
+            title="Pagina nu există",
+            message="Adresa nu mai este disponibilă. Revino în laborator sau în workspace.",
+        ), 404
+
     @app.errorhandler(400)
     def bad_request(_error):
         if isinstance(_error, SecurityError):
@@ -446,6 +454,24 @@ def task_metadata():
 
 
 def register_routes(app):
+    @app.route("/robots.txt")
+    def robots():
+        return Response(
+            "User-agent: *\nAllow: /lab\nAllow: /static/\n"
+            "Disallow: /tasks\nDisallow: /login\nDisallow: /export\n"
+            "\nSitemap: https://brainfuck.micutu.com/sitemap.xml\n",
+            mimetype="text/plain",
+        )
+
+    @app.route("/sitemap.xml")
+    def sitemap():
+        return Response(
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            "<url><loc>https://brainfuck.micutu.com/lab</loc></url></urlset>",
+            mimetype="application/xml",
+        )
+
     @app.route("/lab")
     def lab():
         instructions = [
@@ -468,7 +494,7 @@ def register_routes(app):
     def healthz():
         try:
             with closing(get_db_connection()) as conn:
-                conn.execute("SELECT 1").fetchone()
+                conn.execute("SELECT 1 FROM todos LIMIT 1").fetchone()
         except sqlite3.Error:
             current_app.logger.exception("healthcheck database query failed")
             return jsonify({"status": "error", "database": "unavailable"}), 503
@@ -544,10 +570,10 @@ def register_routes(app):
             status = "all"
         sort = request.args.get("sort", "manual")
         order = {
-            "manual": "position ASC, id DESC",
-            "priority": "priority DESC, position ASC, id DESC",
-            "due": "due_date IS NULL, due_date ASC, priority DESC, id DESC",
-            "newest": "id DESC",
+            "manual": "SELECT * FROM todos ORDER BY done ASC, position ASC, id DESC",
+            "priority": "SELECT * FROM todos ORDER BY done ASC, priority DESC, position ASC, id DESC",
+            "due": "SELECT * FROM todos ORDER BY done ASC, due_date IS NULL, due_date ASC, priority DESC, id DESC",
+            "newest": "SELECT * FROM todos ORDER BY done ASC, id DESC",
         }
         if sort not in order:
             sort = "manual"
@@ -556,7 +582,7 @@ def register_routes(app):
             abort(400)
         today = date.today().isoformat()
         with closing(get_db_connection()) as conn:
-            todos = conn.execute("SELECT * FROM todos ORDER BY done ASC, " + order[sort]).fetchall()
+            todos = conn.execute(order[sort]).fetchall()
         total_count = len(todos)
         active_count = sum(not t["done"] for t in todos)
         overdue_count = sum(
@@ -778,7 +804,12 @@ def register_routes(app):
             )
             writer.writeheader()
             for record in records:
-                writer.writerow({**record, "task": csv_safe(record["task"])})
+                writer.writerow(
+                    {
+                        key: csv_safe(value) if isinstance(value, str) else value
+                        for key, value in record.items()
+                    }
+                )
             return Response(
                 buffer.getvalue(),
                 mimetype="text/csv",
@@ -923,7 +954,8 @@ def init_db(db_file, timeout=5):
 
 def get_db_connection():
     conn = sqlite3.connect(
-        current_app.config["DB_FILE"],
+        Path(current_app.config["DB_FILE"]).resolve().as_uri() + "?mode=rw",
+        uri=True,
         timeout=current_app.config["SQLITE_TIMEOUT_SECONDS"],
     )
     conn.execute(f"PRAGMA busy_timeout={current_app.config['SQLITE_TIMEOUT_SECONDS'] * 1000}")

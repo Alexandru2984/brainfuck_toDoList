@@ -1,4 +1,4 @@
-.PHONY: install install-dev lint format test check
+.PHONY: install install-dev lint format test check test-vm test-browser
 
 PYTHON ?= python3
 
@@ -18,3 +18,9 @@ test:
 	PYTHONWARNINGS=error $(PYTHON) -m unittest
 
 check: lint test
+
+test-vm:
+	npm test
+
+test-browser:
+	npm run test:browser

@@ -1,0 +1,16 @@
+{
+  "name": "brainfuck-lab-checks",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/bf_vm.test.mjs",
+    "test:browser": "playwright test",
+    "format:check": "prettier --check 'static/*.mjs' 'static/*.js' 'static/*.css' 'tests/**/*.mjs' playwright.config.mjs",
+    "format": "prettier --write 'static/*.mjs' 'static/*.js' 'static/*.css' 'tests/**/*.mjs' playwright.config.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.60.0",
+    "prettier": "3.6.2"
+  }
+}

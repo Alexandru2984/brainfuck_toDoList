@@ -1,61 +1,85 @@
-# The limit_req_zone directives must live in nginx's http context.
-limit_req_zone $binary_remote_addr zone=brainfuck_login:10m rate=5r/m;
-limit_req_zone $binary_remote_addr zone=brainfuck_mutation:10m rate=30r/m;
+server {
+    listen 80;
+    listen [::]:80;
+    server_name brainfuck.micutu.com;
+
+    access_log /var/log/nginx/brainfuck-canary.access.log;
+    error_log /var/log/nginx/brainfuck-canary.error.log warn;
+    return 301 https://$host$request_uri;
+}
 
 server {
-    include snippets/block-dotfiles.conf;
-    server_name brainfuck.micutu.com;
     listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name brainfuck.micutu.com;
 
-    if ($from_cloudflare_origin = 0) {
+    access_log /var/log/nginx/brainfuck-canary.access.log;
+    error_log /var/log/nginx/brainfuck-canary.error.log warn;
+    server_tokens off;
+    client_max_body_size 16k;
+    limit_req_status 429;
+
+    # Only Cloudflare and the locally terminated Cloudflare Tunnel reach this vhost.
+    set $brainfuck_origin_allowed $from_cloudflare_origin;
+    if ($brainfuck_origin_allowed = 0) {
         return 403;
     }
 
-    client_max_body_size 16k;
+    ssl_certificate /etc/letsencrypt/live/brainfuck.micutu.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/brainfuck.micutu.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:brainfuck_canary_tls:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
 
     location = /login {
         limit_req zone=brainfuck_login burst=5 nodelay;
         proxy_pass http://127.0.0.1:34623;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Host "";
+        proxy_set_header CF-Connecting-IP "";
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    location ~ ^/(add|delete/|logout) {
+    location ~ ^/(add|edit/[0-9]+|toggle/[0-9]+|delete/[0-9]+|move/[0-9]+|duplicate/[0-9]+|clear-completed|reorder|logout)$ {
         limit_req zone=brainfuck_mutation burst=10 nodelay;
         proxy_pass http://127.0.0.1:34623;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Host "";
+        proxy_set_header CF-Connecting-IP "";
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+
 
     location / {
         proxy_pass http://127.0.0.1:34623;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Host "";
+        proxy_set_header CF-Connecting-IP "";
         proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+        access_log off;
+        log_not_found off;
     }
 
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
-    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://analytics.micutu.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://analytics.micutu.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" always;
-
-    include snippets/robots.conf;
-    ssl_certificate /etc/letsencrypt/live/brainfuck.micutu.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/brainfuck.micutu.com/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-}
-
-server {
-    include snippets/block-dotfiles.conf;
-    server_name brainfuck.micutu.com;
-    listen 80;
-    return 301 https://$host$request_uri;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" always;
 }

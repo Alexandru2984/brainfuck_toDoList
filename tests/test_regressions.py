@@ -1,17 +1,38 @@
 import hashlib
+import os
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from unittest.mock import patch
 
-from cryptography.fernet import InvalidToken
+from cryptography.fernet import Fernet, InvalidToken
 
-from app import create_app, csv_safe, verify_login_with_bf
+from app import (
+    create_app,
+    csv_safe,
+    decrypt_storage,
+    encrypt_storage,
+    reserve_login_attempt,
+    verify_login_with_bf,
+)
 from bf_interpreter import run_bf
 from generate_login_bf import generate_login_bf
 from tests.test_app import BaseAppTest
 
 
 class AuthRegressionTests(BaseAppTest):
+    def test_concurrent_workers_share_atomic_login_budget(self):
+        self.app.config["LOGIN_MAX_ATTEMPTS"] = 3
+
+        def reserve(_):
+            with self.app.app_context():
+                return reserve_login_attempt("192.0.2.10")
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            results = list(pool.map(reserve, range(8)))
+        self.assertEqual(results.count(0), 3)
+        self.assertTrue(all(value > 0 for value in results if value != 0))
+
     def test_password_overflow_and_nul_suffix_are_rejected(self):
         candidates = [
             "test-password\0trailing",
@@ -104,6 +125,40 @@ class AuthRegressionTests(BaseAppTest):
 
 
 class StorageRegressionTests(BaseAppTest):
+    def test_missing_database_fails_health_without_recreating_it(self):
+        os.unlink(self.db_file)
+        response = self.client.get("/healthz")
+        self.assertEqual(response.status_code, 503)
+        self.assertFalse(os.path.exists(self.db_file))
+
+    def test_key_rotation_retains_old_tokens_and_uses_new_primary_key(self):
+        self.login()
+        self.add("Old key task")
+        with closing(sqlite3.connect(self.db_file)) as conn:
+            stored = conn.execute("SELECT task FROM todos WHERE id = 1").fetchone()[0]
+        with self.app.app_context():
+            payload = decrypt_storage(stored)
+        # The original test key is derived from the session secret; use an
+        # explicit old key on a fresh database for the rotation rehearsal.
+        old_key, new_key = Fernet.generate_key().decode(), Fernet.generate_key().decode()
+        old_token = "bf1:" + Fernet(old_key).encrypt(payload.encode("latin-1")).decode()
+        with closing(sqlite3.connect(self.db_file)) as conn, conn:
+            conn.execute("UPDATE todos SET task = ? WHERE id = 1", (old_token,))
+        rotated = create_app(
+            {"DB_FILE": self.db_file, "TESTING": True, "ENCRYPTION_KEY": new_key + "," + old_key}
+        )
+        with rotated.app_context():
+            self.assertEqual(decrypt_storage(old_token), payload)
+            new_token = encrypt_storage(payload)
+        self.assertEqual(Fernet(new_key).decrypt(new_token[4:].encode()).decode("latin-1"), payload)
+        with closing(sqlite3.connect(self.db_file)) as conn:
+            self.assertEqual(
+                conn.execute("SELECT task FROM todos WHERE id = 1").fetchone()[0], old_token
+            )
+        # A token from another key must still be rejected, never re-encrypted.
+        with rotated.app_context(), self.assertRaises(InvalidToken):
+            decrypt_storage(stored)
+
     def test_unicode_roundtrip_search_and_export(self):
         self.login()
         value = "Cumpără pâine 🧠 日本語 ÿ <script> & =1"

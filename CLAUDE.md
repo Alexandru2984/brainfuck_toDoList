@@ -1,60 +1,51 @@
-# CLAUDE.md
+# Repository guidance
 
-Guidance for working in this repository.
+Brainfuck Lab is Flask + SQLite around a public browser Brainfuck machine and a
+single private task workspace. Production: Cloudflare → Nginx → loopback
+Gunicorn → `brainfuck-canary.service`. The Git root is `app/`.
 
-## What this is
+## Checks
 
-A Flask todo app where the esoteric parts are implemented in Brainfuck: login
-verification, a task transformation pass, and task presentation formatting. The
-surrounding Python, tests, and deployment config are intentionally conventional.
-It runs in production behind Cloudflare → Nginx → Gunicorn → systemd.
+- `make PYTHON=./venv/bin/python check` and `python -m ruff format --check .`.
+- `npm ci --ignore-scripts`, `npm test`, `npm run format:check`.
+- `npm run test:browser` starts an isolated server/database on loopback 38173;
+  ensure Python dependencies are on PATH. Never point browser tests at live data.
+- Production Python is the absolute sibling path
+  `/srv/canary/brainfuck.micutu.com/venv/bin/python`; the repo-local virtualenv in
+  examples is for independent development.
 
-## Commands
+## Structure
 
-Use the project virtualenv at `./venv`.
+- `app.py`: routes, factory, SQLite migrations, revocable sessions, atomic
+  throttle, CSRF, versioned Fernet storage, HTML sanitizer, headers, healthcheck.
+- `bf_interpreter.py`: bounded byte-accurate server BF machine. Input/output
+  strings represent Latin-1 bytes. Encode Unicode before calling it.
+- `generate_login_bf.py`: sticky Brainfuck comparison of SHA-256 hex digests.
+  Generated verifiers remain sensitive and must never be committed.
+- `encrypt.bf`: +1 byte transform (obfuscation). The reverse transform also runs
+  in BF. Unicode task text passes through escaped numeric entities.
+- `format_task.bf`: BF HTML presentation, reproducibly generated with
+  `python tools/build_formatter.py`. Allowlisted classes, no inline styles.
+- `static/bf-vm.mjs`, `bf-worker.mjs`: bounded public browser execution; never
+  expose a server route that executes arbitrary Brainfuck submissions.
+- `static/programs/*.bf`: runnable examples; `catalog.mjs`: descriptions,
+  challenges and expected outputs. Keep examples and cases verified together.
+- `tests/`: Python regressions, Node byte-machine tests, Playwright user flows.
 
-- Install dev deps: `make PYTHON=./venv/bin/python install-dev`
-- Lint: `./venv/bin/python -m ruff check .`
-- Format: `./venv/bin/python -m ruff format .`
-- Test: `PYTHONWARNINGS=error ./venv/bin/python -m unittest`
-- All checks: `make PYTHON=./venv/bin/python check`
-- Run locally: set `BRAINFUCK_SECRET_KEY`, `BRAINFUCK_PASSWORD`, and
-  `BRAINFUCK_COOKIE_SECURE=0`, then `./venv/bin/python app.py` (binds the first
-  free port from 5000).
+## Conventions and boundaries
 
-Tests set their own default `BRAINFUCK_*` env vars, so run unittest without those
-vars exported (an exported password mismatching the test password breaks login).
+Ruff line length 100 and double quotes; Prettier formats browser JS/CSS. Frontend
+scripts and styles must be external; CSP excludes unsafe-inline/eval. Render
+untrusted browser text with textContent/value, never innerHTML. Shared programs
+are fragments, exclude input, and never autorun. Draft persistence is opt-in.
 
-## Architecture
+Task mutations are POST-only, `login_required` and CSRF protected. Never silently
+continue after a BF transform or authenticated decryption failure. Initial legacy
+storage migration is atomic; versioned rows must always authenticate. Metadata
+(tags, due dates, status, order) is not encrypted; do not claim otherwise.
 
-- `app.py`: application factory, routes, config, CSRF, login throttle, HTML
-  sanitizer, SQLite access, security headers, healthcheck.
-- `bf_interpreter.py`: bounded Brainfuck interpreter (step and output limits).
-  Output is byte-accurate (one code point per byte); do not change this — the
-  encrypt/format round-trip depends on it. Decode to UTF-8 only at display time.
-- `generate_login_bf.py`: builds the login verifier from a password.
-- `encrypt.bf`: a per-byte +1 transform (the Brainfuck "cipher", obfuscation
-  only). `format_task.bf`: renders a stored task to whitelisted HTML.
-- Real confidentiality is a separate layer: `encrypt_storage`/`decrypt_storage`
-  wrap the Brainfuck payload in Fernet (`MultiFernet`) before/after the DB. The
-  DB stores ciphertext; `decrypt_storage` falls back to legacy plaintext rows.
-- `templates/`, `static/`: UI, CSS theme tokens, and `theme.js` toggle.
-- `deploy/`: production env/systemd/Nginx examples.
-
-## Conventions
-
-- Ruff config in `pyproject.toml` (line length 100, double quotes).
-- Add a route via the `login_required` decorator and `validate_csrf()`; mutations
-  are POST-only and redirect to `index`.
-- The HTML sanitizer allows a fixed set of tags/classes/inline styles emitted by
-  `format_task.bf`. If you change the formatter's markup, update `ALLOWED_*`.
-- Front-end scripts must be external files (CSP `script-src 'self'`); no inline
-  `<script>`.
-
-## Security-sensitive
-
-- Never commit `login.bf` (it encodes the password); it is git-ignored and not
-  used at runtime. The app generates the verifier in memory at startup.
-- The published git history previously contained the password via `login.bf`.
-  Rotate `BRAINFUCK_PASSWORD` and purge history (or keep the repo private).
-- Do not weaken cookie flags, CSRF, the sanitizer, or the interpreter limits.
+Preserve changes already in the working tree. Commit stages using the existing
+owner identity, without agent attribution or Co-authored-by. Do not push or
+rewrite public history without a separate instruction. Historical `login.bf`
+contains an obsolete secret; do not print it. The current live password was
+compared against historical verifiers in memory, without exposing values.

@@ -1,109 +1,149 @@
-# Brainfuck Todo App
+# Brainfuck Lab
 
-Production-hardened Flask todo app where the intentionally unusual parts of the stack are implemented in Brainfuck: login verification, text transformation, and task presentation formatting.
+An interactive Brainfuck playground and a private task workspace. The public
+laboratory runs real Brainfuck programs locally in a Web Worker. Python provides
+HTTP, authenticated storage and sessions; JavaScript provides the editor and the
+byte machine. There is no frontend framework or production Node dependency.
 
-The project is a portfolio piece, but it is deployed like a real service: secrets live outside git, sessions are signed with rotated keys, mutating routes use CSRF protection, rendered Brainfuck HTML is sanitized, and the public deployment runs behind Cloudflare, Nginx, Gunicorn, and systemd hardening.
+- Public laboratory: `/lab` (anonymous `/` redirects here).
+- Private workspace: `/tasks` (existing authenticated `/` links still work).
+- Operational endpoint: `/healthz`.
 
-## Features
+## Public laboratory
 
-- Brainfuck-backed login verifier generated at process startup from `BRAINFUCK_PASSWORD`.
-- SQLite todo storage with a Brainfuck transformation pass before insert.
-- Brainfuck-generated task rendering passed through a strict Python HTML sanitizer.
-- Task management: add, mark complete, edit in place (JS-free `<details>` form), delete, and clear all completed; active/done counters and creation timestamps.
-- Responsive, mobile-first UI with a light/dark theme that follows the OS preference and persists an explicit choice; SVG favicon and an installable web app manifest.
-- Flask application factory, healthcheck endpoint, structured request logging, and app-level security headers.
-- CSRF protection for login, add, edit, toggle, delete, clear, and logout.
-- App-level brute-force throttle that locks an IP after repeated failed logins, on top of the Nginx rate limit.
-- Runtime limits for request size, task length, Brainfuck steps, and Brainfuck output.
-- Production examples for env files, systemd, Nginx rate limits, CSP, and Cloudflare origin guard.
-- Local quality gate through `ruff`, `unittest`, `Makefile`, and GitHub Actions CI.
+- Editor with import/export `.bf`, instruction counts, compaction and keyboard
+  shortcuts: Ctrl/⌘ Enter to run, F10 to step while the editor has focus.
+- Run, pause, reset, single step, slow execution and instruction breakpoints.
+- Visual memory tape, current instruction, pointer, steps, execution time and
+  output byte count. UTF-8 and hexadecimal output; binary output download.
+- Ten runnable `.bf` examples and eight challenges with multiple input cases,
+  hints and local progress. Challenge results are educational, not a leaderboard.
+- Code-only share links in the URL fragment. Input is excluded and shared code
+  never runs automatically. Fragment contents are visible to anyone receiving
+  the link; do not put secrets in shared programs.
+- Optional local code drafts. Input is never persisted. Progress and theme are
+  stored on the device; storage failures do not prevent using the lab.
+- Responsive light/dark themes, system preference, keyboard navigation and
+  reduced motion. No external fonts, analytics or runtime CDN dependencies.
 
-## Architecture
+Machine semantics: 30,000 cells, unsigned 8-bit values, wrapping pointer and
+cells, UTF-8 input bytes, EOF writes zero. Echo-style loops consequently stop at
+a NUL byte. Programs are limited to 20,000 source characters, 4,096 input bytes,
+2,000,000 executed instructions and 65,536 output bytes. A separate UI watchdog
+terminates execution after ten seconds. The output preview shows at most 8 KiB;
+the download preserves all bytes. Challenge runs use stricter per-case budgets.
 
-- `app.py`: Flask application factory, routes, config, CSRF, sanitizer, SQLite access, and healthcheck.
-- `bf_interpreter.py`: bounded Brainfuck interpreter with step and output limits.
-- `generate_login_bf.py`: generates Brainfuck login verifier code from an environment-provided password.
-- `encrypt.bf`: Brainfuck task transformation before storage.
-- `format_task.bf`: Brainfuck presentation formatter for stored tasks.
-- `templates/` and `static/`: authenticated UI, login, error page, and shared CSS.
-- `deploy/`: production-ready examples for env, systemd, and Nginx.
-- `tests/`: security and operational smoke tests.
+## Private workspace
 
-## Security Model
+Add, edit with prefilled text, complete, duplicate, delete and clear completed
+tasks. Priorities, due dates, overdue/today filters, up to five tags, text search,
+four sort orders and accessible up/down controls are included. Lists render at
+most 30 Brainfuck cards per page, with a configurable collection cap (2,000 by
+default). Reordering by API requires the complete, unique set of existing IDs.
+JSON/CSV exports include metadata, with spreadsheet formula protection.
 
-This app is still intentionally small, but the deployment assumes the internet is hostile.
+This is **one password-protected shared workspace**, not a multi-user service.
+Anyone with the password sees the same tasks. There is no public task sharing.
 
-- `BRAINFUCK_SECRET_KEY` or `SECRET_KEY` is required, kept outside git, and must be stable across Gunicorn workers.
-- `BRAINFUCK_PASSWORD` is required and must never be committed. The generated Brainfuck verifier (`login.bf`) encodes the password and is git-ignored; `generate_login_bf.py` prints to stdout by default and never writes it into the repo.
-- Cookies are `HttpOnly`, `Secure`, and `SameSite=Lax` by default.
-- Sessions are permanent with configurable lifetime through `BRAINFUCK_SESSION_LIFETIME_SECONDS`.
-- CSRF tokens are required for all form submissions; all mutations use POST, never GET.
-- Failed logins are throttled per real client IP (`CF-Connecting-IP` behind Cloudflare via `ProxyFix`) and lock the IP after `BRAINFUCK_LOGIN_MAX_ATTEMPTS` within `BRAINFUCK_LOGIN_WINDOW_SECONDS`.
-- Authenticated responses send `Cache-Control: no-store`; responses also set `Cross-Origin-Opener-Policy: same-origin`. Brainfuck errors are logged, never reflected to the page.
-- Tasks are encrypted at rest with authenticated encryption (Fernet/`MultiFernet`, key rotation supported) wrapped around the Brainfuck transform, so the SQLite database holds ciphertext, not readable tasks. Set a dedicated `BRAINFUCK_ENCRYPTION_KEY`.
-- User task input is escaped before storage, then Brainfuck-rendered HTML is sanitized by allowlist before template output.
-- Nginx examples include request size limits, login/mutation rate limits, CSP, and Cloudflare origin guard.
+Task transformation, reverse transformation and HTML presentation run in
+Brainfuck. Unicode is represented safely as numeric HTML entities before the
+byte transform. The `+1` Brainfuck transform is obfuscation; actual confidentiality
+comes from versioned Fernet authenticated encryption. **Task text is encrypted;
+IDs, completion, timestamps, order, priorities, due dates and tags are metadata
+stored without encryption.** The formatter is generated reproducibly by
+`python tools/build_formatter.py` and its output passes a strict HTML sanitizer.
 
-See `deploy/brainfuck.env.example` for the full list of configuration variables, including the proxy and throttle settings.
+## Security
 
-## Local Development
+- The login Brainfuck program compares fixed-length SHA-256 digests with a
+  sticky mismatch flag, avoiding the old overflow and NUL-suffix bypasses.
+  SHA-256 is used to normalize the verifier input, not to encrypt stored tasks.
+- SQLite-backed session tokens are hashed, expire absolutely and are revoked at
+  logout. Password changes invalidate the authentication version. CSRF tokens
+  rotate at login; mutations require POST and CSRF.
+- Login attempt reservation is atomic across workers. Only the configured
+  right-most proxy hop controls the client IP; raw CF-Connecting-IP and
+  X-Forwarded-Host are ignored. Keep Gunicorn bound to loopback.
+- Secure, HttpOnly, SameSite cookies; Trusted Hosts; strict CSP without inline
+  scripts/styles; no-store dynamic pages and noindex private routes.
+- Storage migration authenticates all encrypted rows before changing any. A
+  wrong key or altered token aborts startup without re-encrypting damaged data.
+  Legacy plaintext fallback is allowed only in the initial, atomic migration.
+- Request/form/task/interpreter/collection limits bound resource consumption.
+  Healthchecks fail when the actual task table cannot be read.
 
-Requirements:
+Read [the audit](docs/AUDIT.md) for findings and residual risks and
+[the roadmap](docs/ROADMAP.md) for the completed scope and future ideas.
 
-- Python 3.13
-- `pip`
+## Development
 
-Setup:
+Python 3.13 or 3.14. Node 24 is used only for development checks.
 
-```bash
+```sh
 python3 -m venv venv
-source venv/bin/activate
+. venv/bin/activate
 pip install -r requirements-dev.txt
-```
-
-Configure local secrets:
-
-```bash
-export BRAINFUCK_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
-export BRAINFUCK_PASSWORD="choose-a-private-password"
+export BRAINFUCK_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+export BRAINFUCK_PASSWORD='choose-a-private-password'
 export BRAINFUCK_COOKIE_SECURE=0
-```
-
-Run locally:
-
-```bash
+export BRAINFUCK_TRUST_PROXY=0
 python app.py
 ```
 
-Run checks:
+The development server binds a free loopback port starting at 5000. Production
+uses Gunicorn. Never enable the Flask debugger in production.
 
-```bash
+Checks:
+
+```sh
 make PYTHON=./venv/bin/python check
+./venv/bin/python -m ruff format --check .
+npm ci --ignore-scripts
+npm test
+npm run format:check
+npx playwright install chromium
+PATH="$PWD/venv/bin:$PATH" npm run test:browser
 ```
 
-Healthcheck:
+Python tests and browser checks create temporary databases and explicit test
+credentials. They do not import the production environment. Browser tests start
+their own isolated HTTP server on `127.0.0.1:38173`; they cover desktop and mobile
+Chromium. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` optionally selects an existing
+local Chromium executable; CI installs the matching Playwright browser.
 
-```bash
-curl http://127.0.0.1:5000/healthz
-```
+GitHub Actions checks Python 3.13/3.14, formatting, the byte machine, browser
+flows, Python dependency advisories and npm advisories. Actions are pinned to
+commit SHAs, credentials are not persisted, and token permissions are read-only.
+Dependabot proposes weekly dependency/action updates. No CI deployment secrets
+or automatic production deploy are configured.
 
-`python app.py` binds to the first free local port starting at `5000`.
+## Production
 
-## Deployment
+The active installation uses `/srv/canary/brainfuck.micutu.com/app`, the sibling
+virtualenv, `/srv/canary/brainfuck.micutu.com/state/todos.db`, and
+`brainfuck-canary.service`. Secrets are in `/etc/brainfuck/brainfuck.env`, mode
+600, outside the repository. Keep a dedicated `BRAINFUCK_ENCRYPTION_KEY` stable
+and backed up securely. For rotation, configure `new_key,old_key`; do not remove
+the old key until every ciphertext has been explicitly rotated and verified.
+Startup migration does not itself rotate existing valid tokens.
 
-Example production files live in `deploy/`:
+Versioned deployment examples are in `deploy/`:
 
-- `deploy/brainfuck.env.example`: copy to `/etc/brainfuck/brainfuck.env`, fill with real values, and `chmod 600`.
-- `deploy/brainfuck.service.example`: Gunicorn service with env file and systemd hardening.
-- `deploy/nginx-brainfuck.conf.example`: reverse proxy, HTTPS, rate limits, CSP, body limit, and Cloudflare origin guard.
+- `brainfuck.env.example`: settings and secret placeholders;
+- `brainfuck.service.example`: current systemd sandbox and loopback Gunicorn;
+- `nginx-brainfuck.conf.example`: TLS, origin guard, proxy normalization, strict
+  headers and rate limits for every mutation;
+- `rate-limit.conf.example`: directives for Nginx's `http` context.
 
-After code changes on the VPS:
+The outer sibling `../deploy/` contains migration-era snapshots and is not the
+source of truth for the live vhost. Nginx must use this application's
+`/robots.txt`, rather than the shared robots file for another domain.
 
-```bash
-sudo systemctl restart brainfuck
-sudo systemctl status brainfuck --no-pager
-```
+Before deployment, take a consistent SQLite backup using its backup API and
+check a copy with the production keys. Test Nginx with `sudo nginx -t`, then
+restart only `brainfuck-canary` and reload Nginx. Check `/healthz`, `/lab`,
+`/robots.txt`, `/sitemap.xml` and unauthenticated `/tasks` through the public
+hostname. See [operations](docs/OPERATIONS.md) for recovery and monitoring.
 
-## Notes
-
-The Brainfuck pieces are deliberately esoteric. The surrounding Python, tests, deployment config, and security controls are intentionally conventional so the project is understandable and operable.
+The manifest supports home-screen shortcuts; offline execution and caching of
+private pages are not implemented.

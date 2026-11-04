@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<rect width="1200" height="630" fill="#0d141b"/>
+<rect x="48" y="48" width="1104" height="534" rx="24" fill="#131e27" stroke="#2a3a44"/>
+<g font-family="Arial, sans-serif"><text x="98" y="125" fill="#c2ee81" font-size="24" letter-spacing="3">[+] BRAINFUCK.LAB</text><text x="98" y="248" fill="#edf2ef" font-size="70" font-weight="700">Opt instrucțiuni.</text><text x="98" y="335" fill="#c2ee81" font-size="70" font-weight="700">O lume de posibilități.</text><text x="98" y="414" fill="#a1b1b8" font-size="25">Editor · Debugger vizual · Exemple · Provocări</text><text x="98" y="516" fill="#a1b1b8" font-size="20">Gratuit. Fără cont. Direct în browser.</text></g>
+<text x="966" y="526" font-family="monospace" font-size="48" fill="#c2ee81">[+]</text></svg>

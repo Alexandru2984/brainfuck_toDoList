@@ -1,7 +1,20 @@
 {% extends 'base.html' %}
-{% block title %}Brainfuck Lab — editor, debugger și provocări interactive{% endblock %}
+{% block title %}Brainfuck Online — editor și debugger interactiv · Brainfuck Lab{% endblock %}
 {% block metadata %}
 <meta name="description" content="Învață Brainfuck într-un laborator interactiv: editor online, debugger pas cu pas, bandă de memorie, 10 exemple și 8 provocări. Gratuit, fără cont.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://brainfuck.micutu.com/lab">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ro_RO">
+<meta property="og:site_name" content="Brainfuck Lab">
+<meta property="og:title" content="Opt instrucțiuni. O lume de posibilități.">
+<meta property="og:description" content="Editor Brainfuck, debugger vizual și 8 provocări. Experimentează gratuit, direct în browser.">
+<meta property="og:url" content="https://brainfuck.micutu.com/lab">
+<meta property="og:image" content="https://brainfuck.micutu.com/static/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Brainfuck Lab — opt instrucțiuni, o lume de posibilități">
+<meta name="twitter:card" content="summary_large_image">
 {% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='lab.css') }}">{% endblock %}
 {% block content %}
@@ -10,7 +23,10 @@
     <div class="hero-visual" aria-hidden="true"><div class="visual-caption"><span>THE BEAUTY OF SIMPLE</span><span>01 — ∞</span></div><div class="hero-code">++<span>[</span>&gt;++<br>&lt;-<span>]</span>&gt;<span>.</span></div><div class="hero-tape"><span>000</span><span class="lit">004</span><span>000</span><span>000</span></div><p>tiny language / big ideas</p></div>
 </section>
 <div class="lab-facts"><span><b>08</b> instrucțiuni</span><span><b>30.000</b> celule de memorie</span><span><b>100%</b> execuție în browser</span><span><b>0</b> conturi necesare</span></div>
-<section id="playground" class="playground" aria-labelledby="playground-title">
+<section id="playground" class="playground" aria-labelledby="playground-title" itemscope itemtype="https://schema.org/SoftwareApplication">
+    <meta itemprop="name" content="Brainfuck Lab">
+    <meta itemprop="applicationCategory" content="EducationalApplication">
+    <meta itemprop="operatingSystem" content="Web browser">
     <div class="section-heading"><div><p class="eyebrow">01 / Experimentează</p><h2 id="playground-title">Spațiul tău de joacă.</h2></div><span class="local-badge"><span class="status-dot"></span> Codul și inputul rămân în browser</span></div>
     <noscript><p class="error-message">Editorul are nevoie de JavaScript. Poți descărca exemplele .bf și le poți rula într-un interpretor local.</p></noscript>
     <div class="lab-grid">

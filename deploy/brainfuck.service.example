@@ -1,24 +1,49 @@
 [Unit]
-Description=Gunicorn instance to serve brainfuck app
-After=network.target
+Description=Brainfuck TODO Flask service (Brainfuck Lab)
+After=network-online.target
+Wants=network-online.target
 
 [Service]
+Type=simple
 User=micu
-Group=www-data
-WorkingDirectory=/home/micu/brainfuck
-Environment="PATH=/home/micu/brainfuck/venv/bin"
+Group=micu
+WorkingDirectory=/srv/canary/brainfuck.micutu.com/app
 EnvironmentFile=/etc/brainfuck/brainfuck.env
-ExecStart=/home/micu/brainfuck/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:34623 --timeout 30 --no-control-socket app:app
+Environment="PATH=/srv/canary/brainfuck.micutu.com/venv/bin"
+Environment="PYTHONDONTWRITEBYTECODE=1"
+Environment="BRAINFUCK_DB_FILE=/srv/canary/brainfuck.micutu.com/state/todos.db"
+ExecStart=/srv/canary/brainfuck.micutu.com/venv/bin/python -m gunicorn --workers 3 --bind 127.0.0.1:34623 --timeout 30 --no-control-socket app:app
 Restart=on-failure
-RestartSec=5
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=full
-ProtectHome=read-only
-ReadWritePaths=/home/micu/brainfuck
-RestrictSUIDSGID=true
-LockPersonality=true
-MemoryDenyWriteExecute=true
+RestartSec=3
+TimeoutStopSec=35
+KillSignal=SIGTERM
+UMask=0077
+MemoryMax=384M
+TasksMax=64
+LimitNOFILE=1024
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/canary/brainfuck.micutu.com/state
+ProtectClock=yes
+ProtectKernelLogs=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+CapabilityBoundingSet=
+AmbientCapabilities=
+RemoveIPC=yes
 
 [Install]
 WantedBy=multi-user.target

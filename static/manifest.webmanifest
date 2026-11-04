@@ -1,18 +1,17 @@
 {
-  "name": "Brainfuck Todo",
-  "short_name": "BF Todo",
-  "description": "Todo list cu logica de login, transformare si formatare scrisa in Brainfuck.",
-  "start_url": "/",
+  "id": "/lab",
+  "name": "Brainfuck Lab",
+  "short_name": "BF Lab",
+  "description": "Editor Brainfuck, debugger vizual, exemple și provocări interactive.",
+  "lang": "ro",
+  "start_url": "/lab",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0e1117",
-  "theme_color": "#0e1117",
+  "background_color": "#0d141b",
+  "theme_color": "#0d141b",
   "icons": [
-    {
-      "src": "/static/favicon.svg",
-      "type": "image/svg+xml",
-      "sizes": "any",
-      "purpose": "any"
-    }
+    {"src": "/static/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any"},
+    {"src": "/static/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any"},
+    {"src": "/static/favicon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any"}
   ]
 }
