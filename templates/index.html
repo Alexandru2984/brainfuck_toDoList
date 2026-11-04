@@ -1,118 +1,61 @@
-<!DOCTYPE html>
-<html lang="ro">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brainfuck Todo List</title>
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#0e1117" media="(prefers-color-scheme: dark)">
-    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
-    <script src="{{ url_for('static', filename='theme.js') }}"></script>
-</head>
-<body class="app-shell">
-    <header class="topbar">
-        <div>
-            <p class="eyebrow">Brainfuck Todo</p>
-            <h1>BF Todo Formatter</h1>
-        </div>
-        <div class="topbar-actions">
-            <button type="button" id="theme-toggle" class="icon-button" aria-label="Comuta tema">☾</button>
-            <form action="{{ url_for('logout') }}" method="POST">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="ghost-button">Logout</button>
-            </form>
-        </div>
-    </header>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="flash-stack" role="status" aria-live="polite">
-                {% for category, message in messages %}
-                    <div class="flash flash-{{ category }}">{{ message }}</div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-
-    <section class="compose panel">
-        <form action="{{ url_for('add') }}" method="POST" class="task-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="text" name="task" aria-label="Task nou" placeholder="Adauga un task nou..." required autocomplete="off" maxlength="{{ max_task_length }}">
-            <button type="submit" class="primary-button">Adauga</button>
-        </form>
-    </section>
-
-    <section class="toolbar">
-        <form action="{{ url_for('index') }}" method="GET" class="search-form" role="search">
-            <input type="search" name="q" value="{{ query }}" placeholder="Cauta taskuri..." aria-label="Cauta taskuri" autocomplete="off">
-            {% if status != 'all' %}<input type="hidden" name="filter" value="{{ status }}">{% endif %}
-            <button type="submit" class="ghost-button">Cauta</button>
-        </form>
-        <nav class="filters" aria-label="Filtre">
-            <a class="filter-chip{% if status == 'all' %} is-active{% endif %}" href="{{ url_for('index', filter='all', q=query or none) }}">Toate</a>
-            <a class="filter-chip{% if status == 'active' %} is-active{% endif %}" href="{{ url_for('index', filter='active', q=query or none) }}">Active</a>
-            <a class="filter-chip{% if status == 'done' %} is-active{% endif %}" href="{{ url_for('index', filter='done', q=query or none) }}">Finalizate</a>
-        </nav>
-    </section>
-
-    <section class="statsbar" aria-label="Statistici">
-        <div class="stats">
-            <span class="stat"><strong>{{ total_count }}</strong> total</span>
-            <span class="stat"><strong>{{ active_count }}</strong> active</span>
-            <span class="stat"><strong>{{ done_count }}</strong> finalizate</span>
-        </div>
-        <div class="statsbar-actions">
-            <a class="button-link ghost-button" href="{{ url_for('export', format='json') }}">Export JSON</a>
-            <a class="button-link ghost-button" href="{{ url_for('export', format='csv') }}">Export CSV</a>
-            {% if done_count %}
-                <form action="{{ url_for('clear_completed') }}" method="POST">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="ghost-button">Sterge finalizate</button>
-                </form>
-            {% endif %}
-        </div>
-    </section>
-
-    <section class="task-list" aria-label="Taskuri" data-reorder-url="{{ url_for('reorder') }}" data-csrf="{{ csrf_token() }}">
-        {% for todo in todos %}
-            <div class="task-wrapper{% if todo.done %} is-done{% endif %}" data-id="{{ todo.id }}">
-                <form action="{{ url_for('toggle', id=todo.id) }}" method="POST" class="toggle-form">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="toggle-btn" aria-pressed="{{ 'true' if todo.done else 'false' }}"
-                            aria-label="{{ 'Marcheaza ca activ' if todo.done else 'Marcheaza ca finalizat' }}">
-                        {%- if todo.done %}&#10003;{% endif -%}
-                    </button>
-                </form>
-
-                <div class="task-body">
-                    {{ todo.html | safe }}
-                    <div class="task-meta">
-                        {% if todo.created_at %}<span class="task-date">{{ todo.created_at }}</span>{% endif %}
-                        <details class="edit">
-                            <summary>Editeaza</summary>
-                            <form action="{{ url_for('edit', id=todo.id) }}" method="POST" class="edit-form">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <input type="text" name="task" aria-label="Text nou" placeholder="Text nou..." required autocomplete="off" maxlength="{{ max_task_length }}">
-                                <button type="submit" class="primary-button">Salveaza</button>
-                            </form>
-                        </details>
-                    </div>
-                </div>
-
-                <form action="{{ url_for('delete', id=todo.id) }}" method="POST" class="delete-form">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="delete-btn" aria-label="Sterge task">&times;</button>
-                </form>
-            </div>
-        {% else %}
-            {% if query or status != 'all' %}
-                <div class="empty-state">Niciun rezultat pentru filtrul curent.</div>
-            {% else %}
-                <div class="empty-state">Niciun task. Adauga unul mai sus.</div>
-            {% endif %}
+{% extends 'base.html' %}
+{% block title %}Taskuri private · Brainfuck Lab{% endblock %}
+{% macro metadata_fields(todo=none) %}
+<div class="metadata-fields">
+    <label>Prioritate<select name="priority">
+        {% for value, label in [(0, 'Scăzută'), (1, 'Normală'), (2, 'Ridicată')] %}
+        <option value="{{ value }}"{% if (todo.priority if todo else 1) == value %} selected{% endif %}>{{ label }}</option>
         {% endfor %}
-    </section>
-</body>
-</html>
+    </select></label>
+    <label>Termen<input type="date" name="due_date" value="{{ todo.due_date or '' if todo else '' }}"></label>
+    <label>Etichete<input type="text" name="tags" value="{{ todo.tags if todo else '' }}" placeholder="personal, idei" maxlength="124"><span class="field-hint">Până la 5, separate prin virgulă</span></label>
+</div>
+{% endmacro %}
+{% block content %}
+<section class="page-heading">
+    <div><p class="eyebrow"><span class="status-dot"></span> Workspace privat</p><h1>Mai puțin haos.<br><span class="muted">Mai mult spațiu pentru idei.</span></h1></div>
+    <p class="heading-aside">Text transformat și formatat în Brainfuck.<br>Conținut criptat în baza de date.</p>
+</section>
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}<div class="flash-stack" role="status">{% for category, message in messages %}<div class="flash flash-{{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}
+{% endwith %}
+<section class="compose panel" aria-label="Task nou">
+    <form action="{{ url_for('add') }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="task-form"><input id="new-task" type="text" name="task" aria-label="Task nou" placeholder="Ce vrei să faci mai departe?" required autocomplete="off" maxlength="{{ max_task_length }}"><button class="primary-button" type="submit">+ Adaugă task</button></div>
+        <details class="compose-options"><summary>Prioritate, termen și etichete</summary>{{ metadata_fields() }}</details>
+    </form>
+</section>
+<section class="statsbar" aria-label="Statistici">
+    <div class="stats"><span class="stat"><strong>{{ total_count }}</strong> total</span><span class="stat"><strong>{{ active_count }}</strong> active</span><span class="stat"><strong>{{ done_count }}</strong> finalizate</span>{% if overdue_count %}<span class="badge overdue">{{ overdue_count }} întârziate</span>{% endif %}</div>
+    <div class="statsbar-actions"><a class="ghost-button button-link" href="{{ url_for('export', format='json') }}">↓ JSON</a><a class="ghost-button button-link" href="{{ url_for('export', format='csv') }}">↓ CSV</a>
+    {% if done_count %}<form action="{{ url_for('clear_completed') }}" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="ghost-button" type="submit">Șterge finalizate</button></form>{% endif %}</div>
+</section>
+<section class="toolbar" aria-label="Căutare și filtre">
+    <form action="{{ url_for('index') }}" method="GET" class="search-form" role="search">
+        <input type="search" name="q" value="{{ query }}" placeholder="Caută în taskuri…" aria-label="Caută taskuri" maxlength="120">
+        <select name="filter" aria-label="Stare">{% for value, label in [('all','Toate'),('active','Active'),('done','Finalizate'),('today','Astăzi'),('overdue','Întârziate')] %}<option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+        <select name="sort" aria-label="Sortare">{% for value, label in [('manual','Ordinea mea'),('priority','Prioritate'),('due','Termen'),('newest','Cele mai noi')] %}<option value="{{ value }}"{% if sort == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+        {% if all_tags %}<select name="tag" aria-label="Etichetă"><option value="">Toate etichetele</option>{% for item in all_tags %}<option value="{{ item }}"{% if item == tag %} selected{% endif %}>{{ item }}</option>{% endfor %}</select>{% endif %}
+        <button class="ghost-button" type="submit">Aplică</button>
+    </form>
+</section>
+<section class="task-list" aria-label="Taskuri">
+{% for todo in todos %}
+    <article class="task-wrapper{% if todo.done %} is-done{% endif %}" data-id="{{ todo.id }}">
+        <form action="{{ url_for('toggle', id=todo.id) }}" method="POST" class="toggle-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="toggle-btn" aria-pressed="{{ 'true' if todo.done else 'false' }}" aria-label="{{ 'Marchează ca activ' if todo.done else 'Marchează ca finalizat' }}">{% if todo.done %}✓{% else %}<span aria-hidden="true">○</span>{% endif %}</button></form>
+        <div class="task-body">
+            {{ todo.html | safe }}
+            <div class="task-meta"><span class="badge priority-{{ todo.priority }}">{{ ['Scăzută','Normală','Ridicată'][todo.priority] }}</span>{% if todo.due_date %}<time class="badge{% if todo.overdue %} overdue{% endif %}" datetime="{{ todo.due_date }}">{{ todo.due_date }}</time>{% endif %}{% for item in todo.tag_list %}<a class="tag" href="{{ url_for('index', tag=item) }}">#{{ item }}</a>{% endfor %}</div>
+            <details class="edit"><summary>Editează taskul</summary><form action="{{ url_for('edit', id=todo.id) }}" method="POST" class="edit-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="text" name="task" value="{{ todo.text }}" aria-label="Text nou" required maxlength="{{ max_task_length }}">{{ metadata_fields(todo) }}<div class="edit-footer"><span class="field-hint">{{ todo.created_at }}</span><button type="submit" class="primary-button">Salvează</button></div></form></details>
+        </div>
+        <div class="task-actions">
+            {% if sort == 'manual' and status == 'all' and not query and not tag %}<form action="{{ url_for('move', id=todo.id) }}" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="icon-button" name="direction" value="up" aria-label="Mută taskul în sus">↑</button><button class="icon-button" name="direction" value="down" aria-label="Mută taskul în jos">↓</button></form>{% endif %}
+            <form action="{{ url_for('duplicate', id=todo.id) }}" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="icon-button" aria-label="Duplică taskul" title="Duplică">⧉</button></form>
+            <form action="{{ url_for('delete', id=todo.id) }}" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="icon-button delete-btn" aria-label="Șterge taskul" title="Șterge">×</button></form>
+        </div>
+    </article>
+{% else %}<div class="empty-state"><span class="empty-symbol" aria-hidden="true">[ ]</span><h2>{% if query or status != 'all' or tag %}Niciun rezultat{% else %}Niciun task. Un început bun.{% endif %}</h2><p>{% if query or status != 'all' or tag %}Încearcă alte filtre sau <a href="{{ url_for('index') }}">vezi toate taskurile</a>.{% else %}Adaugă prima idee în formularul de mai sus.{% endif %}</p></div>{% endfor %}
+</section>
+{% if pages > 1 %}<nav class="pagination" aria-label="Pagini">{% if page > 1 %}<a class="ghost-button button-link" href="{{ url_for('index', page=page-1, q=query, filter=status, sort=sort, tag=tag) }}">← Înapoi</a>{% endif %}<span>{{ page }} / {{ pages }} · {{ shown_count }} rezultate</span>{% if page < pages %}<a class="ghost-button button-link" href="{{ url_for('index', page=page+1, q=query, filter=status, sort=sort, tag=tag) }}">Înainte →</a>{% endif %}</nav>{% endif %}
+{% endblock %}

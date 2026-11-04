@@ -13,7 +13,7 @@ import socket
 import sqlite3
 import time
 from contextlib import closing
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from functools import wraps
 from html import escape, unescape
 from html.parser import HTMLParser
@@ -133,16 +133,7 @@ def build_fernet(encryption_key, secret_key):
 
 class BFHTMLSanitizer(HTMLParser):
     ALLOWED_TAGS = {"li", "div", "strong", "em", "span"}
-    ALLOWED_CLASSES = {"task-item"}
-    ALLOWED_STYLES = {
-        "padding: 15px; border-bottom: 1px solid #eee; font-family: monospace; background: #fff; border-radius: 4px; margin-bottom: 8px;",
-        "display: flex; justify-content: space-between; align-items: center;",
-        "color: #007bff; font-size: 1.1em;",
-        "font-size: 1.3em; color: #111; margin-top: 10px;",
-        "color: #d63384; margin-top: 8px; font-size: 0.9em;",
-        "color: #28a745; margin-top: 4px; font-size: 0.9em;",
-        "letter-spacing: 2px;",
-    }
+    ALLOWED_CLASSES = {"task-item", "task-title", "bf-label"}
 
     def __init__(self):
         super().__init__(convert_charrefs=False)
@@ -155,12 +146,7 @@ class BFHTMLSanitizer(HTMLParser):
 
         safe_attrs = []
         for name, value in attrs:
-            if (
-                name == "class"
-                and value in self.ALLOWED_CLASSES
-                or name == "style"
-                and value in self.ALLOWED_STYLES
-            ):
+            if name == "class" and value in self.ALLOWED_CLASSES:
                 safe_attrs.append((name, value))
 
         rendered_attrs = "".join(
@@ -252,9 +238,9 @@ def register_hooks(app):
             )
             response.headers.setdefault(
                 "Content-Security-Policy",
-                "default-src 'self'; script-src 'self' https://analytics.micutu.com; "
-                "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
-                "font-src 'self' data:; connect-src 'self' https://analytics.micutu.com; "
+                "default-src 'self'; script-src 'self'; "
+                "style-src 'self'; worker-src 'self'; img-src 'self' data: blob:; "
+                "font-src 'self' data:; connect-src 'self'; "
                 "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';",
             )
         return response
@@ -424,7 +410,37 @@ def store_task(conn, task, todo_id=None):
             "UPDATE todos SET task = ? WHERE id = ?", (stored_task, todo_id)
         ).rowcount:
             abort(404)
+    priority, due_date, tags = task_metadata()
+    target = (
+        todo_id if todo_id is not None else conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    )
+    conn.execute(
+        "UPDATE todos SET priority = ?, due_date = ?, tags = ? WHERE id = ?",
+        (priority, due_date, tags, target),
+    )
     return True
+
+
+def task_metadata():
+    raw_priority = request.form.get("priority", "1")
+    if raw_priority not in {"0", "1", "2"}:
+        abort(400)
+    due = request.form.get("due_date", "").strip()
+    if due:
+        try:
+            if len(due) != 10 or date.fromisoformat(due).isoformat() != due:
+                abort(400)
+        except ValueError:
+            abort(400)
+    raw_tags = request.form.get("tags", "")
+    if len(raw_tags) > 124:
+        abort(400)
+    tags = list(dict.fromkeys(t.strip().casefold() for t in raw_tags.split(",") if t.strip()))
+    if len(tags) > 5 or any(
+        len(t) > 24 or not all(c.isalnum() or c in "-_ " for c in t) for t in tags
+    ):
+        abort(400)
+    return int(raw_priority), due or None, ",".join(tags)
 
 
 def register_routes(app):
@@ -497,51 +513,91 @@ def register_routes(app):
         return redirect(url_for("login"))
 
     @app.route("/")
+    @app.route("/tasks")
     @login_required
     def index():
         query = request.args.get("q", "").strip()
+        if len(query) > 120:
+            abort(400)
         status = request.args.get("filter", "all")
-        if status not in {"all", "active", "done"}:
+        if status not in {"all", "active", "done", "overdue", "today"}:
             status = "all"
-
+        sort = request.args.get("sort", "manual")
+        order = {
+            "manual": "position ASC, id DESC",
+            "priority": "priority DESC, position ASC, id DESC",
+            "due": "due_date IS NULL, due_date ASC, priority DESC, id DESC",
+            "newest": "id DESC",
+        }
+        if sort not in order:
+            sort = "manual"
+        tag = request.args.get("tag", "").strip().casefold()
+        if len(tag) > 24:
+            abort(400)
+        today = date.today().isoformat()
         with closing(get_db_connection()) as conn:
-            todos = conn.execute(
-                "SELECT id, task, done, created_at FROM todos "
-                "ORDER BY done ASC, position ASC, id DESC"
-            ).fetchall()
-
+            todos = conn.execute("SELECT * FROM todos ORDER BY done ASC, " + order[sort]).fetchall()
         total_count = len(todos)
-        active_count = sum(1 for todo in todos if not todo["done"])
-        needle = query.lower()
-
-        formatted_todos = []
+        active_count = sum(not t["done"] for t in todos)
+        overdue_count = sum(
+            not t["done"] and bool(t["due_date"]) and t["due_date"] < today for t in todos
+        )
+        all_tags = sorted({t.strip() for row in todos for t in row["tags"].split(",") if t.strip()})
+        filtered = []
         for todo in todos:
-            done = bool(todo["done"])
-            if status == "active" and done:
+            if (
+                (status == "active" and todo["done"])
+                or (status == "done" and not todo["done"])
+                or (
+                    status == "overdue"
+                    and (todo["done"] or not todo["due_date"] or todo["due_date"] >= today)
+                )
+                or (status == "today" and (todo["done"] or todo["due_date"] != today))
+            ):
                 continue
-            if status == "done" and not done:
+            if tag and tag not in [t.casefold() for t in todo["tags"].split(",")]:
                 continue
+            if (
+                query
+                and query.casefold()
+                not in bf_payload_to_text(decrypt_storage(todo["task"])).casefold()
+            ):
+                continue
+            filtered.append(todo)
+        page = request.args.get("page", 1, type=int)
+        pages = max(1, math.ceil(len(filtered) / current_app.config["PAGE_SIZE"]))
+        page = min(max(page, 1), pages)
+        offset = (page - 1) * current_app.config["PAGE_SIZE"]
+        formatted_todos = []
+        for todo in filtered[offset : offset + current_app.config["PAGE_SIZE"]]:
             payload = decrypt_storage(todo["task"])
-            if needle and needle not in bf_payload_to_text(payload).lower():
-                continue
             formatted_todos.append(
                 {
-                    "id": todo["id"],
+                    **dict(todo),
                     "html": format_with_bf(payload),
-                    "done": done,
+                    "text": bf_payload_to_text(payload),
                     "created_at": format_timestamp(todo["created_at"]),
+                    "overdue": bool(
+                        todo["due_date"] and todo["due_date"] < today and not todo["done"]
+                    ),
+                    "tag_list": [t for t in todo["tags"].split(",") if t],
                 }
             )
-
         return render_template(
             "index.html",
             todos=formatted_todos,
             total_count=total_count,
             active_count=active_count,
             done_count=total_count - active_count,
-            shown_count=len(formatted_todos),
+            overdue_count=overdue_count,
+            shown_count=len(filtered),
             query=query,
             status=status,
+            sort=sort,
+            tag=tag,
+            all_tags=all_tags,
+            page=page,
+            pages=pages,
             max_task_length=current_app.config["MAX_TASK_LENGTH"],
         )
 
@@ -568,7 +624,8 @@ def register_routes(app):
     def toggle(id):
         validate_csrf()
         with closing(get_db_connection()) as conn, conn:
-            conn.execute("UPDATE todos SET done = 1 - done WHERE id = ?", (id,))
+            if not conn.execute("UPDATE todos SET done = 1 - done WHERE id = ?", (id,)).rowcount:
+                abort(404)
         return redirect(url_for("index"))
 
     @app.route("/delete/<int:id>", methods=["POST"])
@@ -576,7 +633,8 @@ def register_routes(app):
     def delete(id):
         validate_csrf()
         with closing(get_db_connection()) as conn, conn:
-            conn.execute("DELETE FROM todos WHERE id = ?", (id,))
+            if not conn.execute("DELETE FROM todos WHERE id = ?", (id,)).rowcount:
+                abort(404)
         flash("Task sters.", "success")
         return redirect(url_for("index"))
 
@@ -616,6 +674,59 @@ def register_routes(app):
             )
         return ("", 204)
 
+    @app.route("/move/<int:id>", methods=["POST"])
+    @login_required
+    def move(id):
+        validate_csrf()
+        direction = request.form.get("direction")
+        if direction not in {"up", "down"}:
+            abort(400)
+        with closing(get_db_connection()) as conn, conn:
+            conn.execute("BEGIN IMMEDIATE")
+            rows = list(
+                conn.execute("SELECT id FROM todos ORDER BY done ASC, position ASC, id DESC")
+            )
+            ids = [r["id"] for r in rows]
+            if id not in ids:
+                abort(404)
+            i = ids.index(id)
+            j = i + (-1 if direction == "up" else 1)
+            if 0 <= j < len(ids):
+                ids[i], ids[j] = ids[j], ids[i]
+                conn.executemany("UPDATE todos SET position = ? WHERE id = ?", enumerate(ids))
+        return redirect(url_for("index"))
+
+    @app.route("/duplicate/<int:id>", methods=["POST"])
+    @login_required
+    def duplicate(id):
+        validate_csrf()
+        with closing(get_db_connection()) as conn, conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("SELECT * FROM todos WHERE id = ?", (id,)).fetchone()
+            if row is None:
+                abort(404)
+            if (
+                conn.execute("SELECT COUNT(*) FROM todos").fetchone()[0]
+                >= current_app.config["MAX_TASKS"]
+            ):
+                abort(413)
+            # Authenticate and re-encrypt rather than duplicating damaged bytes.
+            task = encrypt_storage(decrypt_storage(row["task"]))
+            conn.execute(
+                "INSERT INTO todos (task, done, created_at, position, priority, due_date, tags) "
+                "VALUES (?, 0, ?, ?, ?, ?, ?)",
+                (
+                    task,
+                    time.time(),
+                    next_top_position(conn),
+                    row["priority"],
+                    row["due_date"],
+                    row["tags"],
+                ),
+            )
+        flash("Task duplicat.", "success")
+        return redirect(url_for("index"))
+
     @app.route("/export")
     @login_required
     def export():
@@ -624,7 +735,7 @@ def register_routes(app):
             abort(400)
         with closing(get_db_connection()) as conn:
             rows = conn.execute(
-                "SELECT id, task, done, created_at FROM todos ORDER BY id"
+                "SELECT id, task, done, created_at, priority, due_date, tags FROM todos ORDER BY id"
             ).fetchall()
         records = [
             {
@@ -632,13 +743,19 @@ def register_routes(app):
                 "task": bf_payload_to_text(decrypt_storage(row["task"])),
                 "done": bool(row["done"]),
                 "created_at": iso_timestamp(row["created_at"]),
+                "priority": row["priority"],
+                "due_date": row["due_date"],
+                "tags": row["tags"],
             }
             for row in rows
         ]
 
         if fmt == "csv":
             buffer = io.StringIO()
-            writer = csv.DictWriter(buffer, fieldnames=["id", "task", "done", "created_at"])
+            writer = csv.DictWriter(
+                buffer,
+                fieldnames=["id", "task", "done", "created_at", "priority", "due_date", "tags"],
+            )
             writer.writeheader()
             for record in records:
                 writer.writerow({**record, "task": csv_safe(record["task"])})
@@ -767,6 +884,14 @@ def init_db(db_file, timeout=5):
             conn.execute("ALTER TABLE todos ADD COLUMN position REAL")
             # Preserve the previous newest-first order for existing rows.
             conn.execute("UPDATE todos SET position = -id WHERE position IS NULL")
+        for column, definition in {
+            "priority": "INTEGER NOT NULL DEFAULT 1",
+            "due_date": "TEXT",
+            "tags": "TEXT NOT NULL DEFAULT ''",
+        }.items():
+            if column not in todo_columns:
+                conn.execute(f"ALTER TABLE todos ADD COLUMN {column} {definition}")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_todos_order ON todos (done, position, id)")
         conn.execute(
             """CREATE TABLE IF NOT EXISTS login_attempts
                    (id INTEGER PRIMARY KEY AUTOINCREMENT,
